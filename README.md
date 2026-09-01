@@ -1,4 +1,4 @@
-# 41sCombatAlert - for World of Warcraft 1.12.1 client
+# 41sCombatAlert - World of Warcraft 1.12.1 addon
 
 
 ## Install
