@@ -1,16 +1,18 @@
-41sCombatAlert - WoW 1.12.1
-=============================
+# 41sCombatAlert - for World of Warcraft 1.12.1 client
 
-Install
--------
+
+## Install
+
 Copy the 41sCombatAlert folder into:
 
 Interface\AddOns\
 
-Then launch or reload WoW 1.12.1.
+Then launch WoW
 
-Commands
---------
+---
+
+## Commands
+
 /foca
     Open the configuration window.
 
@@ -22,8 +24,10 @@ Commands
 
 You can also click the minimap icon to open or close the configuration window.
 
-Pattern
--------
+---
+
+## Pattern
+
 * is the only wildcard. It means zero or more arbitrary characters.
 Matching is case-insensitive.
 
@@ -48,8 +52,10 @@ sent only while you are in a party or raid respectively.
 The alert editor displays four alerts per page. Use Previous and Next to move
 between pages.
 
-Starter examples
-----------------
+---
+
+## Starter examples
+
 The Taunt-resisted example is enabled by default, has Text and Sound enabled,
 and reports to Party. Existing alerts and SavedVariables are kept when
 updating does not import settings from older CombatAlert packages.
