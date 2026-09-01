@@ -17,19 +17,13 @@ Then launch WoW
 /foca
     Open the configuration window.
 
-/foca test
-    Test the on-screen alert and sound.
-
-/foca hide
-    Hide the current on-screen alert.
-
 You can also click the minimap icon to open or close the configuration window.
 
 ---
 
 ## Pattern
 
-* is the only wildcard. It means zero or more arbitrary characters.
+\* is the only wildcard. It means zero or more arbitrary characters.
 Matching is case-insensitive.
 
 currentpet will be replaced by your current pet's name. If there is no pet,
