@@ -15,7 +15,10 @@ FortyOneSCombatAlertDB = FortyOneSCombatAlertDB or {}
 FortyOneSCombatAlertDB.alerts = FortyOneSCombatAlertDB.alerts or {}
 
 local ALERT_TIME = 3
-local SOUND_FILE = "Interface\\AddOns\\41sCombatAlert\\Sounds\\alert.wav"
+local SOUND_FILES = {
+    [1] = "Interface\\AddOns\\41sCombatAlert\\Sounds\\SoundA.wav",
+    [2] = "Interface\\AddOns\\41sCombatAlert\\Sounds\\SoundB.wav"
+}
 
 local function EnsureDefaults()
     if table.getn(FortyOneSCombatAlertDB.alerts) == 0 then
@@ -24,6 +27,8 @@ local function EnsureDefaults()
             pattern = "currentpet * torment * resisted *",
             textEnabled = true,
             soundEnabled = true,
+            soundChoice = 1,
+            customSoundPath = "Sound\\Interface\\RaidWarning.wav",
             chatParty = false,
             chatRaid = false,
             chatSay = false,
@@ -38,6 +43,8 @@ local function EnsureDefaults()
             pattern = "your taunt was resisted *",
             textEnabled = true,
             soundEnabled = true,
+            soundChoice = 1,
+            customSoundPath = "Sound\\Interface\\RaidWarning.wav",
             chatParty = true,
             chatRaid = false,
             chatSay = false,
@@ -55,6 +62,10 @@ local function EnsureDefaults()
         if alert.chatRaid == nil then alert.chatRaid = false end
         if alert.chatSay == nil then alert.chatSay = false end
         if alert.chatYell == nil then alert.chatYell = false end
+        if alert.soundChoice == nil then alert.soundChoice = 1 end
+        if alert.customSoundPath == nil then
+            alert.customSoundPath = "Sound\\Interface\\RaidWarning.wav"
+        end
     end
 end
 
@@ -168,8 +179,18 @@ local function ShowAlert(text)
     alertFrame:Show()
 end
 
-local function PlayAlertSound()
-    PlaySoundFile(SOUND_FILE)
+local function PlayAlertSound(alert)
+    local soundChoice = 1
+    if alert and alert.soundChoice then
+        soundChoice = alert.soundChoice
+    end
+    if soundChoice == 3 then
+        if alert and alert.customSoundPath and alert.customSoundPath ~= "" then
+            PlaySoundFile(alert.customSoundPath)
+        end
+    else
+        PlaySoundFile(SOUND_FILES[soundChoice] or SOUND_FILES[1])
+    end
 end
 
 -- Send the alert text to every selected chat channel.
@@ -278,7 +299,7 @@ eventFrame:SetScript("OnEvent", function()
             end
 
             if alert.soundEnabled then
-                PlayAlertSound()
+                PlayAlertSound(alert)
             end
 
             SendChatReport(alert)
@@ -392,32 +413,60 @@ local function CreateRow(index)
     row.soundEnabledLabel:SetText("Sound")
 
     row.chatLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    row.chatLabel:SetPoint("TOPLEFT", row, "TOPLEFT", 38, -66)
+    row.chatLabel:SetPoint("TOPLEFT", row, "TOPLEFT", 38, -96)
     row.chatLabel:SetText("Report to:")
 
     row.chatParty = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
-    row.chatParty:SetPoint("TOPLEFT", row, "TOPLEFT", 105, -59)
+    row.chatParty:SetPoint("TOPLEFT", row, "TOPLEFT", 105, -89)
     row.chatPartyLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     row.chatPartyLabel:SetPoint("LEFT", row.chatParty, "RIGHT", 0, 0)
     row.chatPartyLabel:SetText("Party")
 
     row.chatRaid = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
-    row.chatRaid:SetPoint("TOPLEFT", row, "TOPLEFT", 190, -59)
+    row.chatRaid:SetPoint("TOPLEFT", row, "TOPLEFT", 190, -89)
     row.chatRaidLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     row.chatRaidLabel:SetPoint("LEFT", row.chatRaid, "RIGHT", 0, 0)
     row.chatRaidLabel:SetText("Raid")
 
     row.chatSay = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
-    row.chatSay:SetPoint("TOPLEFT", row, "TOPLEFT", 265, -59)
+    row.chatSay:SetPoint("TOPLEFT", row, "TOPLEFT", 265, -89)
     row.chatSayLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     row.chatSayLabel:SetPoint("LEFT", row.chatSay, "RIGHT", 0, 0)
     row.chatSayLabel:SetText("Say")
 
     row.chatYell = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
-    row.chatYell:SetPoint("TOPLEFT", row, "TOPLEFT", 335, -59)
+    row.chatYell:SetPoint("TOPLEFT", row, "TOPLEFT", 335, -89)
     row.chatYellLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     row.chatYellLabel:SetPoint("LEFT", row.chatYell, "RIGHT", 0, 0)
     row.chatYellLabel:SetText("Yell")
+
+    row.soundA = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
+    row.soundA:SetPoint("TOPLEFT", row, "TOPLEFT", 38, -59)
+    row.soundALabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    row.soundALabel:SetPoint("LEFT", row.soundA, "RIGHT", 0, 0)
+    row.soundALabel:SetText("Sound A")
+
+    row.soundB = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
+    row.soundB:SetPoint("TOPLEFT", row, "TOPLEFT", 128, -59)
+    row.soundBLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    row.soundBLabel:SetPoint("LEFT", row.soundB, "RIGHT", 0, 0)
+    row.soundBLabel:SetText("Sound B")
+
+    row.soundCustom = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
+    row.soundCustom:SetPoint("TOPLEFT", row, "TOPLEFT", 218, -59)
+    row.soundCustomLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    row.soundCustomLabel:SetPoint("LEFT", row.soundCustom, "RIGHT", 0, 0)
+    row.soundCustomLabel:SetText("Custom")
+
+    row.customSoundLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    row.customSoundLabel:SetPoint("TOPLEFT", row, "TOPLEFT", 305, -66)
+    row.customSoundLabel:SetText("Path:")
+
+    row.customSoundPath = CreateFrame("EditBox", nil, row, "InputBoxTemplate")
+    row.customSoundPath:SetWidth(190)
+    row.customSoundPath:SetHeight(24)
+    row.customSoundPath:SetPoint("TOPLEFT", row, "TOPLEFT", 345, -57)
+    row.customSoundPath:SetAutoFocus(false)
 
     row.delete = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
     row.delete:SetWidth(75)
@@ -457,6 +506,46 @@ local function CreateRow(index)
         local r=this.caRow
         if r and FortyOneSCombatAlertDB.alerts[r.index] then
             FortyOneSCombatAlertDB.alerts[r.index].soundEnabled=this:GetChecked()
+        end
+    end)
+
+    row.soundA:SetScript("OnClick", function()
+        local r=this.caRow
+        if r and FortyOneSCombatAlertDB.alerts[r.index] then
+            local alert=FortyOneSCombatAlertDB.alerts[r.index]
+            alert.soundChoice=1
+            r.soundA:SetChecked(true)
+            r.soundB:SetChecked(false)
+            r.soundCustom:SetChecked(false)
+        end
+    end)
+
+    row.soundB:SetScript("OnClick", function()
+        local r=this.caRow
+        if r and FortyOneSCombatAlertDB.alerts[r.index] then
+            local alert=FortyOneSCombatAlertDB.alerts[r.index]
+            alert.soundChoice=2
+            r.soundA:SetChecked(false)
+            r.soundB:SetChecked(true)
+            r.soundCustom:SetChecked(false)
+        end
+    end)
+
+    row.soundCustom:SetScript("OnClick", function()
+        local r=this.caRow
+        if r and FortyOneSCombatAlertDB.alerts[r.index] then
+            local alert=FortyOneSCombatAlertDB.alerts[r.index]
+            alert.soundChoice=3
+            r.soundA:SetChecked(false)
+            r.soundB:SetChecked(false)
+            r.soundCustom:SetChecked(true)
+        end
+    end)
+
+    row.customSoundPath:SetScript("OnTextChanged", function()
+        local r=this.caRow
+        if r and FortyOneSCombatAlertDB.alerts[r.index] then
+            FortyOneSCombatAlertDB.alerts[r.index].customSoundPath=this:GetText()
         end
     end)
 
@@ -501,6 +590,10 @@ local function CreateRow(index)
     row.enabled.caRow=row
     row.textEnabled.caRow=row
     row.soundEnabled.caRow=row
+    row.soundA.caRow=row
+    row.soundB.caRow=row
+    row.soundCustom.caRow=row
+    row.customSoundPath.caRow=row
     row.chatParty.caRow=row
     row.chatRaid.caRow=row
     row.chatSay.caRow=row
@@ -534,6 +627,10 @@ function RefreshRows()
             row.enabled:SetChecked(a.enabled)
             row.textEnabled:SetChecked(a.textEnabled)
             row.soundEnabled:SetChecked(a.soundEnabled)
+            row.soundA:SetChecked((a.soundChoice or 1)==1)
+            row.soundB:SetChecked((a.soundChoice or 1)==2)
+            row.soundCustom:SetChecked((a.soundChoice or 1)==3)
+            row.customSoundPath:SetText(a.customSoundPath or "Sound\\Interface\\RaidWarning.wav")
             row.chatParty:SetChecked(a.chatParty)
             row.chatRaid:SetChecked(a.chatRaid)
             row.chatSay:SetChecked(a.chatSay)
@@ -561,7 +658,9 @@ add:SetText("Add Alert")
 add:SetScript("OnClick",function()
     table.insert(FortyOneSCombatAlertDB.alerts,{
         enabled=true, pattern="", textEnabled=true,
-        soundEnabled=true, chatParty=false, chatRaid=false,
+        soundEnabled=true, soundChoice=1,
+        customSoundPath="Sound\\Interface\\RaidWarning.wav",
+        chatParty=false, chatRaid=false,
         chatSay=false, chatYell=false, text="ALERT!"
     })
     currentPage=math.ceil(table.getn(FortyOneSCombatAlertDB.alerts)/ROWS_PER_PAGE)
@@ -598,28 +697,6 @@ nextPage:SetScript("OnClick",function()
     end
 end)
 
-local test=CreateFrame("Button",nil,config,"UIPanelButtonTemplate")
-test:SetWidth(100)
-test:SetHeight(28)
-test:SetPoint("BOTTOMRIGHT",config,"BOTTOMRIGHT",-135,18)
-test:SetText("Test Alert")
-test:SetScript("OnClick",function()
-    ShowAlert("TEST ALERT")
-    PlayAlertSound()
-end)
-
-local reset=CreateFrame("Button",nil,config,"UIPanelButtonTemplate")
-reset:SetWidth(100)
-reset:SetHeight(28)
-reset:SetPoint("BOTTOMRIGHT",config,"BOTTOMRIGHT",-25,18)
-reset:SetText("Reset")
-reset:SetScript("OnClick",function()
-    FortyOneSCombatAlertDB.alerts={}
-    EnsureDefaults()
-    currentPage=1
-    RefreshRows()
-end)
-
 local function ShowConfig()
     RefreshRows()
     config:Show()
@@ -630,12 +707,49 @@ end
 -- ============================================================
 
 local minimapButton = CreateFrame("Button", "FortyOneSCombatAlertMinimapButton", Minimap)
-minimapButton:SetWidth(24)
-minimapButton:SetHeight(24)
-minimapButton:SetPoint("TOPLEFT", Minimap, "TOPLEFT", 52, -52)
-minimapButton:SetFrameStrata("MEDIUM")
-minimapButton:SetNormalTexture("Interface\\Icons\\Spell_Nature_Lightning")
-minimapButton:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+minimapButton:SetWidth(32)
+minimapButton:SetHeight(32)
+minimapButton:SetFrameStrata("HIGH")
+minimapButton:SetPoint("CENTER", UIParent, "CENTER")
+
+local minimapIcon = minimapButton:CreateTexture(nil, "BORDER")
+minimapIcon:SetTexture("Interface\\Icons\\Ability_Warrior_RallyingCry")
+minimapIcon:SetWidth(20)
+minimapIcon:SetHeight(20)
+minimapIcon:SetPoint("CENTER", minimapButton, "CENTER")
+
+local minimapBorder = minimapButton:CreateTexture(nil, "OVERLAY")
+minimapBorder:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+minimapBorder:SetWidth(52)
+minimapBorder:SetHeight(52)
+minimapBorder:SetPoint("TOPLEFT", minimapButton, "TOPLEFT")
+
+local function UpdateMinimapButtonPosition(angle)
+    local centerX, centerY = Minimap:GetCenter()
+    local radius = 80
+    angle = angle or FortyOneSCombatAlertDB.minimapAngle or (math.pi * 0.75)
+
+    minimapButton:ClearAllPoints()
+    minimapButton:SetPoint("CENTER", UIParent, "BOTTOMLEFT",
+        centerX + (math.cos(angle) * radius),
+        centerY + (math.sin(angle) * radius))
+    FortyOneSCombatAlertDB.minimapAngle = angle
+end
+
+minimapButton:RegisterForDrag("LeftButton")
+minimapButton:SetMovable(true)
+minimapButton:SetScript("OnDragStart", function()
+    this:SetScript("OnUpdate", function()
+        local cursorX, cursorY = GetCursorPosition()
+        local scale = UIParent:GetEffectiveScale()
+        local centerX, centerY = Minimap:GetCenter()
+        UpdateMinimapButtonPosition(math.atan2((cursorY / scale) - centerY,
+            (cursorX / scale) - centerX))
+    end)
+end)
+minimapButton:SetScript("OnDragStop", function()
+    this:SetScript("OnUpdate", nil)
+end)
 minimapButton:SetScript("OnClick", function()
     if config:IsShown() then
         config:Hide()
@@ -676,6 +790,7 @@ local startup=CreateFrame("Frame","FortyOneSCombatAlertStartupFrame",UIParent)
 startup:RegisterEvent("PLAYER_LOGIN")
 startup:SetScript("OnEvent",function()
     EnsureDefaults()
+    UpdateMinimapButtonPosition()
     RefreshRows()
     DEFAULT_CHAT_FRAME:AddMessage("|cffff333341sCombatAlert|r loaded. Type |cff66ccff/foca|r.")
 end)
