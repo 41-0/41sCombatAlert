@@ -1,4 +1,4 @@
--- 41sCombatAlert
+-- 41's Combat Alert
 -- World of Warcraft 1.12.1 / Lua 5.0
 -- No SuperWoW required.
 --
@@ -9,7 +9,7 @@
 --   currentpet = current pet name
 --
 -- Example:
---   currentpet * torment * resisted *
+--   currentpet*torment*resisted*
 
 FortyOneSCombatAlertDB = FortyOneSCombatAlertDB or {}
 FortyOneSCombatAlertDB.alerts = FortyOneSCombatAlertDB.alerts or {}
@@ -24,7 +24,7 @@ local function EnsureDefaults()
     if table.getn(FortyOneSCombatAlertDB.alerts) == 0 then
         table.insert(FortyOneSCombatAlertDB.alerts, {
             enabled = true,
-            pattern = "currentpet * torment * resisted *",
+            pattern = "currentpet*torment*resisted*",
             textEnabled = true,
             soundEnabled = true,
             soundChoice = 1,
@@ -40,7 +40,7 @@ local function EnsureDefaults()
     if not FortyOneSCombatAlertDB.tauntExampleAdded then
         table.insert(FortyOneSCombatAlertDB.alerts, {
             enabled = true,
-            pattern = "your taunt was resisted *",
+            pattern = "your taunt was resisted*",
             textEnabled = true,
             soundEnabled = true,
             soundChoice = 1,
@@ -337,13 +337,13 @@ end)
 
 local title = config:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 title:SetPoint("TOP", config, "TOP", 0, -20)
-title:SetText("41sCombatAlert")
+title:SetText("41\'s Combat Alert")
 
 local info = config:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 info:SetPoint("TOPLEFT", config, "TOPLEFT", 25, -48)
 info:SetWidth(750)
 info:SetJustifyH("LEFT")
-info:SetText("Use * as a wildcard. Matching is case-insensitive. \"currentpet\" will be replaced by your current pet's name.")
+info:SetText("Use * as a wildcard. Matching is case-insensitive. currentpet will be replaced by your current pet's name.")
 
 local close = CreateFrame("Button", nil, config, "UIPanelCloseButton")
 close:SetPoint("TOPRIGHT", config, "TOPRIGHT", -5, -5)
@@ -366,6 +366,32 @@ local pageLabel
 local previousPage
 local nextPage
 
+-- A self-contained edit box skin.  InputBoxTemplate can render incorrectly
+-- in the 1.12 client when several unnamed edit boxes share one parent.
+local function CreateInputBox(parent)
+    local input = CreateFrame("EditBox", nil, parent)
+    input:SetHeight(24)
+    input:SetAutoFocus(false)
+    input:SetFontObject(GameFontHighlightSmall)
+    input:SetTextColor(1, 1, 1)
+    input:SetJustifyH("LEFT")
+    input:SetTextInsets(6, 6, 0, 0)
+    input:SetMaxLetters(255)
+    input:SetBackdrop({
+        bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true,
+        tileSize = 16,
+        edgeSize = 8,
+        insets = { left = 2, right = 2, top = 2, bottom = 2 }
+    })
+    input:SetBackdropColor(0.03, 0.03, 0.03, 0.9)
+    input:SetBackdropBorderColor(0.65, 0.65, 0.65, 1)
+    input:SetScript("OnEscapePressed", function() this:ClearFocus() end)
+    input:SetScript("OnEnterPressed", function() this:ClearFocus() end)
+    return input
+end
+
 local function CreateRow(index)
     local row = CreateFrame("Frame", nil, scrollChild)
     row:SetWidth(720)
@@ -378,7 +404,7 @@ local function CreateRow(index)
     row.patternLabel:SetPoint("TOPLEFT", row, "TOPLEFT", 38, -7)
     row.patternLabel:SetText("Pattern:")
 
-    row.pattern = CreateFrame("EditBox", nil, row, "InputBoxTemplate")
+    row.pattern = CreateInputBox(row)
     row.pattern:SetWidth(450)
     row.pattern:SetHeight(24)
     row.pattern:SetPoint("TOPLEFT", row, "TOPLEFT", 90, -4)
@@ -388,7 +414,7 @@ local function CreateRow(index)
     row.textLabel:SetPoint("TOPLEFT", row, "TOPLEFT", 38, -39)
     row.textLabel:SetText("Text:")
 
-    row.text = CreateFrame("EditBox", nil, row, "InputBoxTemplate")
+    row.text = CreateInputBox(row)
     row.text:SetWidth(450)
     row.text:SetHeight(24)
     row.text:SetPoint("TOPLEFT", row, "TOPLEFT", 90, -36)
@@ -458,14 +484,10 @@ local function CreateRow(index)
     row.soundCustomLabel:SetPoint("LEFT", row.soundCustom, "RIGHT", 0, 0)
     row.soundCustomLabel:SetText("Custom")
 
-    row.customSoundLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    row.customSoundLabel:SetPoint("TOPLEFT", row, "TOPLEFT", 305, -66)
-    row.customSoundLabel:SetText("Path:")
-
-    row.customSoundPath = CreateFrame("EditBox", nil, row, "InputBoxTemplate")
-    row.customSoundPath:SetWidth(190)
+    row.customSoundPath = CreateInputBox(row)
+    row.customSoundPath:SetWidth(240)
     row.customSoundPath:SetHeight(24)
-    row.customSoundPath:SetPoint("TOPLEFT", row, "TOPLEFT", 345, -57)
+    row.customSoundPath:SetPoint("TOPLEFT", row, "TOPLEFT", 300, -62)
     row.customSoundPath:SetAutoFocus(false)
 
     row.delete = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
@@ -759,7 +781,7 @@ minimapButton:SetScript("OnClick", function()
 end)
 minimapButton:SetScript("OnEnter", function()
     GameTooltip:SetOwner(this, "ANCHOR_LEFT")
-    GameTooltip:SetText("41sCombatAlert")
+    GameTooltip:SetText("41's Combat Alert")
     GameTooltip:AddLine("Click to open settings.", 1, 1, 1)
     GameTooltip:Show()
 end)
