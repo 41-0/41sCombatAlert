@@ -486,9 +486,9 @@ local function CreateRow(index)
     row.soundCustomLabel:SetText("Custom")
 
     row.customSoundPath = CreateInputBox(row)
-    row.customSoundPath:SetWidth(235)
+    row.customSoundPath:SetWidth(240)
     row.customSoundPath:SetHeight(24)
-    row.customSoundPath:SetPoint("TOPLEFT", row, "TOPLEFT", 300, -57)
+    row.customSoundPath:SetPoint("TOPLEFT", row, "TOPLEFT", 300, -62)
     row.customSoundPath:SetAutoFocus(false)
 
     row.delete = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
