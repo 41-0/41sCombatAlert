@@ -1,4 +1,4 @@
--- 41's Combat Alert
+-- 41sCombatAlert
 -- World of Warcraft 1.12.1 / Lua 5.0
 -- No SuperWoW required.
 --
@@ -9,7 +9,7 @@
 --   currentpet = current pet name
 --
 -- Example:
---   currentpet*torment*resisted*
+--   currentpet * torment * resisted *
 
 FortyOneSCombatAlertDB = FortyOneSCombatAlertDB or {}
 FortyOneSCombatAlertDB.alerts = FortyOneSCombatAlertDB.alerts or {}
@@ -337,7 +337,7 @@ end)
 
 local title = config:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 title:SetPoint("TOP", config, "TOP", 0, -20)
-title:SetText("41\'s Combat Alert")
+title:SetText("41's Combat Alert")
 
 local info = config:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 info:SetPoint("TOPLEFT", config, "TOPLEFT", 25, -48)
@@ -365,6 +365,7 @@ local currentPage = 1
 local pageLabel
 local previousPage
 local nextPage
+local RefreshRows
 
 -- A self-contained edit box skin.  InputBoxTemplate can render incorrectly
 -- in the 1.12 client when several unnamed edit boxes share one parent.
@@ -485,9 +486,9 @@ local function CreateRow(index)
     row.soundCustomLabel:SetText("Custom")
 
     row.customSoundPath = CreateInputBox(row)
-    row.customSoundPath:SetWidth(240)
+    row.customSoundPath:SetWidth(235)
     row.customSoundPath:SetHeight(24)
-    row.customSoundPath:SetPoint("TOPLEFT", row, "TOPLEFT", 300, -62)
+    row.customSoundPath:SetPoint("TOPLEFT", row, "TOPLEFT", 300, -57)
     row.customSoundPath:SetAutoFocus(false)
 
     row.delete = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
@@ -625,7 +626,7 @@ local function CreateRow(index)
     return row
 end
 
-function RefreshRows()
+RefreshRows = function()
     local count=table.getn(FortyOneSCombatAlertDB.alerts)
     local pageCount=math.max(1,math.ceil(count/ROWS_PER_PAGE))
     local slot
@@ -789,9 +790,9 @@ minimapButton:SetScript("OnLeave", function()
     GameTooltip:Hide()
 end)
 
-SLASH_FOCASCOMBATALERT1="/foca"
+SLASH_FORTYONESCOMBATALERT1="/foca"
 
-SlashCmdList["FOCASCOMBATALERT"]=function(msg)
+SlashCmdList["FORTYONESCOMBATALERT"]=function(msg)
     msg=string.lower(msg or "")
     if msg=="" or msg=="show" or msg=="config" then
         ShowConfig()

@@ -1,4 +1,4 @@
-# 41sCombatAlert - World of Warcraft 1.12.1 addon
+# 41's Combat Alert - World of Warcraft 1.12.1 addon
 
 Alerts and/or Reports combat log events as you specify.
 
