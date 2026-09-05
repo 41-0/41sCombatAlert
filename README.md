@@ -72,8 +72,6 @@ Choose one sound source from the Sound dropdown:
 - **Sound E** — Uses the included `SoundE.wav` file.
 - **Sound F** — Uses the included `SoundF.wav` file.
 
-You can replace these files with your own .wav files.
-
 ### Custom File
 
 Put your WAV file in the addon's `Sounds` folder and enter its filename in the **File** field.
