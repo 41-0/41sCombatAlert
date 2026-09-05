@@ -74,11 +74,18 @@ Choose one sound source from the Sound dropdown:
 
 You can replace these files with your own .wav files.
 
+### Custom File
 
-- **Custom MPQ Path** — Uses the WAV file path entered in the **Custom MPQ**
-  field.
+Put your WAV file in the addon's `Sounds` folder and enter its filename in the **File** field.
+For example:
 
-The Custom MPQ field is for an audio path inside the WoW client archives,
+  `MySound.wav`
+
+### MPQ Path
+
+Uses the WAV file path entered in the **MPQ** field.
+
+The MPQ field is for an audio path inside the WoW client archives,
 not a Windows file path. For example:
 
 ```
