@@ -15,14 +15,16 @@ FortyOneSCombatAlertDB = FortyOneSCombatAlertDB or {}
 FortyOneSCombatAlertDB.alerts = FortyOneSCombatAlertDB.alerts or {}
 
 local ALERT_TIME = 3
+local ADDON_SOUND_DIRECTORY = "Interface\\AddOns\\41sCombatAlert\\Sounds\\"
 local SOUND_OPTIONS = {
-    [1] = { name = "Sound A", path = "Interface\\AddOns\\41sCombatAlert\\Sounds\\SoundA.wav" },
-    [2] = { name = "Sound B", path = "Interface\\AddOns\\41sCombatAlert\\Sounds\\SoundB.wav" },
-    [3] = { name = "Sound C", path = "Interface\\AddOns\\41sCombatAlert\\Sounds\\SoundC.wav" },
-    [4] = { name = "Sound D", path = "Interface\\AddOns\\41sCombatAlert\\Sounds\\SoundD.wav" },
-    [5] = { name = "Sound E", path = "Interface\\AddOns\\41sCombatAlert\\Sounds\\SoundE.wav" },
-    [6] = { name = "Sound F", path = "Interface\\AddOns\\41sCombatAlert\\Sounds\\SoundF.wav" },
-    [7] = { name = "Custom MPQ Path", custom = true }
+    [1] = { name = "Sound A", path = ADDON_SOUND_DIRECTORY.."SoundA.wav" },
+    [2] = { name = "Sound B", path = ADDON_SOUND_DIRECTORY.."SoundB.wav" },
+    [3] = { name = "Sound C", path = ADDON_SOUND_DIRECTORY.."SoundC.wav" },
+    [4] = { name = "Sound D", path = ADDON_SOUND_DIRECTORY.."SoundD.wav" },
+    [5] = { name = "Sound E", path = ADDON_SOUND_DIRECTORY.."SoundE.wav" },
+    [6] = { name = "Sound F", path = ADDON_SOUND_DIRECTORY.."SoundF.wav" },
+    [7] = { name = "Custom File", customFile = true },
+    [8] = { name = "MPQ Path", customMPQ = true }
 }
 
 local function EnsureDefaults()
@@ -33,7 +35,8 @@ local function EnsureDefaults()
             textEnabled = true,
             soundEnabled = true,
             soundChoice = 1,
-            soundChoiceVersion = 3,
+            soundChoiceVersion = 4,
+            customFileName = "",
             customSoundPath = "Sound\\Interface\\RaidWarning.wav",
             chatParty = false,
             chatRaid = false,
@@ -50,7 +53,8 @@ local function EnsureDefaults()
             textEnabled = true,
             soundEnabled = true,
             soundChoice = 1,
-            soundChoiceVersion = 3,
+            soundChoiceVersion = 4,
+            customFileName = "",
             customSoundPath = "Sound\\Interface\\RaidWarning.wav",
             chatParty = true,
             chatRaid = false,
@@ -73,6 +77,7 @@ local function EnsureDefaults()
         if alert.customSoundPath == nil then
             alert.customSoundPath = "Sound\\Interface\\RaidWarning.wav"
         end
+        if alert.customFileName == nil then alert.customFileName = "" end
         -- Version 1 used choice 3 for the Custom path.
         if alert.soundChoiceVersion == nil or alert.soundChoiceVersion < 2 then
             if alert.soundChoice == 3 then alert.soundChoice = 7 end
@@ -96,6 +101,11 @@ local function EnsureDefaults()
                 alert.soundChoice = 7
             end
             alert.soundChoiceVersion = 3
+        end
+        -- Version 3 used choice 7 for the Custom MPQ Path.
+        if alert.soundChoiceVersion < 4 then
+            if alert.soundChoice == 7 then alert.soundChoice = 8 end
+            alert.soundChoiceVersion = 4
         end
     end
 end
@@ -216,7 +226,11 @@ local function PlayAlertSound(alert)
         soundChoice = alert.soundChoice
     end
     local soundOption = SOUND_OPTIONS[soundChoice] or SOUND_OPTIONS[1]
-    if soundOption.custom then
+    if soundOption.customFile then
+        if alert and alert.customFileName and alert.customFileName ~= "" then
+            PlaySoundFile(ADDON_SOUND_DIRECTORY..alert.customFileName)
+        end
+    elseif soundOption.customMPQ then
         if alert and alert.customSoundPath and alert.customSoundPath ~= "" then
             PlaySoundFile(alert.customSoundPath)
         end
@@ -524,7 +538,7 @@ local function CreateRow(index)
     row.soundDropdown = CreateFrame("Frame",
         "FortyOneSCombatAlertSoundDropdown"..index, row, "UIDropDownMenuTemplate")
     row.soundDropdown:SetPoint("TOPLEFT", row, "TOPLEFT", 70, -58)
-    UIDropDownMenu_SetWidth(165, row.soundDropdown)
+    UIDropDownMenu_SetWidth(90, row.soundDropdown)
     UIDropDownMenu_Initialize(row.soundDropdown, function()
         local choice
         for choice = 1, table.getn(SOUND_OPTIONS) do
@@ -532,14 +546,34 @@ local function CreateRow(index)
         end
     end)
 
+    row.customFileLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    row.customFileLabel:SetPoint("TOPLEFT", row, "TOPLEFT", 205, -66)
+    row.customFileLabel:SetText("File:")
+
+    row.customFileName = CreateInputBox(row)
+    row.customFileName:SetWidth(95)
+    row.customFileName:SetHeight(24)
+    row.customFileName:SetPoint("TOPLEFT", row, "TOPLEFT", 230, -60)
+    row.customFileName:SetAutoFocus(false)
+    row.customFileName:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(this, "ANCHOR_TOP")
+        GameTooltip:SetText("Custom addon sound file")
+        GameTooltip:AddLine("Put a WAV file in Interface\\AddOns\\41sCombatAlert\\Sounds\\", 1, 1, 1)
+        GameTooltip:AddLine("Enter the filename only, for example: MySound.wav", 0.8, 0.8, 0.8)
+        GameTooltip:Show()
+    end)
+    row.customFileName:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+
     row.customSoundLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    row.customSoundLabel:SetPoint("TOPLEFT", row, "TOPLEFT", 285, -66)
-    row.customSoundLabel:SetText("Path:")
+    row.customSoundLabel:SetPoint("TOPLEFT", row, "TOPLEFT", 335, -66)
+    row.customSoundLabel:SetText("MPQ:")
 
     row.customSoundPath = CreateInputBox(row)
-    row.customSoundPath:SetWidth(220)
+    row.customSoundPath:SetWidth(170)
     row.customSoundPath:SetHeight(24)
-    row.customSoundPath:SetPoint("TOPLEFT", row, "TOPLEFT", 320, -60)
+    row.customSoundPath:SetPoint("TOPLEFT", row, "TOPLEFT", 370, -60)
     row.customSoundPath:SetAutoFocus(false)
     row.customSoundPath:SetScript("OnEnter", function()
         GameTooltip:SetOwner(this, "ANCHOR_TOP")
@@ -601,6 +635,13 @@ local function CreateRow(index)
         end
     end)
 
+    row.customFileName:SetScript("OnTextChanged", function()
+        local r=this.caRow
+        if r and FortyOneSCombatAlertDB.alerts[r.index] then
+            FortyOneSCombatAlertDB.alerts[r.index].customFileName=this:GetText()
+        end
+    end)
+
     row.chatParty:SetScript("OnClick", function()
         local r=this.caRow
         if r and FortyOneSCombatAlertDB.alerts[r.index] then
@@ -642,6 +683,7 @@ local function CreateRow(index)
     row.enabled.caRow=row
     row.textEnabled.caRow=row
     row.soundEnabled.caRow=row
+    row.customFileName.caRow=row
     row.customSoundPath.caRow=row
     row.chatParty.caRow=row
     row.chatRaid.caRow=row
@@ -679,6 +721,7 @@ RefreshRows = function()
             UIDropDownMenu_SetSelectedID(row.soundDropdown, a.soundChoice or 1)
             UIDropDownMenu_SetText(SOUND_OPTIONS[a.soundChoice or 1].name,
                 row.soundDropdown)
+            row.customFileName:SetText(a.customFileName or "")
             row.customSoundPath:SetText(a.customSoundPath or "Sound\\Interface\\RaidWarning.wav")
             row.chatParty:SetChecked(a.chatParty)
             row.chatRaid:SetChecked(a.chatRaid)
@@ -707,7 +750,8 @@ add:SetText("Add Alert")
 add:SetScript("OnClick",function()
     table.insert(FortyOneSCombatAlertDB.alerts,{
         enabled=true, pattern="", textEnabled=true,
-        soundEnabled=true, soundChoice=1, soundChoiceVersion=3,
+        soundEnabled=true, soundChoice=1, soundChoiceVersion=4,
+        customFileName="",
         customSoundPath="Sound\\Interface\\RaidWarning.wav",
         chatParty=false, chatRaid=false,
         chatSay=false, chatYell=false, text="ALERT!"
