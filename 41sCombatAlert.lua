@@ -15,9 +15,14 @@ FortyOneSCombatAlertDB = FortyOneSCombatAlertDB or {}
 FortyOneSCombatAlertDB.alerts = FortyOneSCombatAlertDB.alerts or {}
 
 local ALERT_TIME = 3
-local SOUND_FILES = {
-    [1] = "Interface\\AddOns\\41sCombatAlert\\Sounds\\SoundA.wav",
-    [2] = "Interface\\AddOns\\41sCombatAlert\\Sounds\\SoundB.wav"
+local SOUND_OPTIONS = {
+    [1] = { name = "Sound A", path = "Interface\\AddOns\\41sCombatAlert\\Sounds\\SoundA.wav" },
+    [2] = { name = "Sound B", path = "Interface\\AddOns\\41sCombatAlert\\Sounds\\SoundB.wav" },
+    [3] = { name = "Sound C", path = "Interface\\AddOns\\41sCombatAlert\\Sounds\\SoundC.wav" },
+    [4] = { name = "Sound D", path = "Interface\\AddOns\\41sCombatAlert\\Sounds\\SoundD.wav" },
+    [5] = { name = "Sound E", path = "Interface\\AddOns\\41sCombatAlert\\Sounds\\SoundE.wav" },
+    [6] = { name = "Sound F", path = "Interface\\AddOns\\41sCombatAlert\\Sounds\\SoundF.wav" },
+    [7] = { name = "Custom MPQ Path", custom = true }
 }
 
 local function EnsureDefaults()
@@ -28,6 +33,7 @@ local function EnsureDefaults()
             textEnabled = true,
             soundEnabled = true,
             soundChoice = 1,
+            soundChoiceVersion = 3,
             customSoundPath = "Sound\\Interface\\RaidWarning.wav",
             chatParty = false,
             chatRaid = false,
@@ -44,6 +50,7 @@ local function EnsureDefaults()
             textEnabled = true,
             soundEnabled = true,
             soundChoice = 1,
+            soundChoiceVersion = 3,
             customSoundPath = "Sound\\Interface\\RaidWarning.wav",
             chatParty = true,
             chatRaid = false,
@@ -65,6 +72,30 @@ local function EnsureDefaults()
         if alert.soundChoice == nil then alert.soundChoice = 1 end
         if alert.customSoundPath == nil then
             alert.customSoundPath = "Sound\\Interface\\RaidWarning.wav"
+        end
+        -- Version 1 used choice 3 for the Custom path.
+        if alert.soundChoiceVersion == nil or alert.soundChoiceVersion < 2 then
+            if alert.soundChoice == 3 then alert.soundChoice = 7 end
+            alert.soundChoiceVersion = 2
+        end
+        -- Version 2 used choices 3 to 6 for built-in client sounds.
+        -- Preserve those choices as a Custom MPQ Path before these IDs are
+        -- reassigned to the included Sound C to Sound F files.
+        if alert.soundChoiceVersion < 3 then
+            if alert.soundChoice == 3 then
+                alert.customSoundPath = "Sound\\Interface\\RaidWarning.wav"
+                alert.soundChoice = 7
+            elseif alert.soundChoice == 4 then
+                alert.customSoundPath = "Sound\\Interface\\MapPing.wav"
+                alert.soundChoice = 7
+            elseif alert.soundChoice == 5 then
+                alert.customSoundPath = "Sound\\Doodad\\BellTollAlliance.wav"
+                alert.soundChoice = 7
+            elseif alert.soundChoice == 6 then
+                alert.customSoundPath = "Sound\\Doodad\\BellTollHorde.wav"
+                alert.soundChoice = 7
+            end
+            alert.soundChoiceVersion = 3
         end
     end
 end
@@ -184,12 +215,13 @@ local function PlayAlertSound(alert)
     if alert and alert.soundChoice then
         soundChoice = alert.soundChoice
     end
-    if soundChoice == 3 then
+    local soundOption = SOUND_OPTIONS[soundChoice] or SOUND_OPTIONS[1]
+    if soundOption.custom then
         if alert and alert.customSoundPath and alert.customSoundPath ~= "" then
             PlaySoundFile(alert.customSoundPath)
         end
     else
-        PlaySoundFile(SOUND_FILES[soundChoice] or SOUND_FILES[1])
+        PlaySoundFile(soundOption.path)
     end
 end
 
@@ -393,6 +425,24 @@ local function CreateInputBox(parent)
     return input
 end
 
+local function SetSoundDropdownSelection(row, choice)
+    local alert = FortyOneSCombatAlertDB.alerts[row.index]
+    if not alert then return end
+
+    alert.soundChoice = choice
+    UIDropDownMenu_SetSelectedID(row.soundDropdown, choice)
+    UIDropDownMenu_SetText(SOUND_OPTIONS[choice].name, row.soundDropdown)
+end
+
+local function AddSoundDropdownOption(row, choice)
+    local info = UIDropDownMenu_CreateInfo()
+    info.text = SOUND_OPTIONS[choice].name
+    info.func = function()
+        SetSoundDropdownSelection(row, choice)
+    end
+    UIDropDownMenu_AddButton(info)
+end
+
 local function CreateRow(index)
     local row = CreateFrame("Frame", nil, scrollChild)
     row:SetWidth(720)
@@ -402,7 +452,7 @@ local function CreateRow(index)
     row.number:SetPoint("TOPLEFT", row, "TOPLEFT", 8, -7)
 
     row.patternLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    row.patternLabel:SetPoint("TOPLEFT", row, "TOPLEFT", 38, -7)
+    row.patternLabel:SetPoint("TOPLEFT", row, "TOPLEFT", 38, -8)
     row.patternLabel:SetText("Pattern:")
 
     row.pattern = CreateInputBox(row)
@@ -412,13 +462,13 @@ local function CreateRow(index)
     row.pattern:SetAutoFocus(false)
 
     row.textLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    row.textLabel:SetPoint("TOPLEFT", row, "TOPLEFT", 38, -39)
+    row.textLabel:SetPoint("TOPLEFT", row, "TOPLEFT", 38, -38)
     row.textLabel:SetText("Text:")
 
     row.text = CreateInputBox(row)
     row.text:SetWidth(450)
     row.text:SetHeight(24)
-    row.text:SetPoint("TOPLEFT", row, "TOPLEFT", 90, -36)
+    row.text:SetPoint("TOPLEFT", row, "TOPLEFT", 90, -32)
     row.text:SetAutoFocus(false)
 
     row.enabled = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
@@ -467,29 +517,41 @@ local function CreateRow(index)
     row.chatYellLabel:SetPoint("LEFT", row.chatYell, "RIGHT", 0, 0)
     row.chatYellLabel:SetText("Yell")
 
-    row.soundA = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
-    row.soundA:SetPoint("TOPLEFT", row, "TOPLEFT", 38, -59)
-    row.soundALabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    row.soundALabel:SetPoint("LEFT", row.soundA, "RIGHT", 0, 0)
-    row.soundALabel:SetText("Sound A")
+    row.soundLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    row.soundLabel:SetPoint("TOPLEFT", row, "TOPLEFT", 38, -66)
+    row.soundLabel:SetText("Sound:")
 
-    row.soundB = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
-    row.soundB:SetPoint("TOPLEFT", row, "TOPLEFT", 128, -59)
-    row.soundBLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    row.soundBLabel:SetPoint("LEFT", row.soundB, "RIGHT", 0, 0)
-    row.soundBLabel:SetText("Sound B")
+    row.soundDropdown = CreateFrame("Frame",
+        "FortyOneSCombatAlertSoundDropdown"..index, row, "UIDropDownMenuTemplate")
+    row.soundDropdown:SetPoint("TOPLEFT", row, "TOPLEFT", 70, -58)
+    UIDropDownMenu_SetWidth(165, row.soundDropdown)
+    UIDropDownMenu_Initialize(row.soundDropdown, function()
+        local choice
+        for choice = 1, table.getn(SOUND_OPTIONS) do
+            AddSoundDropdownOption(row, choice)
+        end
+    end)
 
-    row.soundCustom = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
-    row.soundCustom:SetPoint("TOPLEFT", row, "TOPLEFT", 218, -59)
-    row.soundCustomLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    row.soundCustomLabel:SetPoint("LEFT", row.soundCustom, "RIGHT", 0, 0)
-    row.soundCustomLabel:SetText("Custom")
+    row.customSoundLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    row.customSoundLabel:SetPoint("TOPLEFT", row, "TOPLEFT", 285, -66)
+    row.customSoundLabel:SetText("Path:")
 
     row.customSoundPath = CreateInputBox(row)
-    row.customSoundPath:SetWidth(240)
+    row.customSoundPath:SetWidth(220)
     row.customSoundPath:SetHeight(24)
-    row.customSoundPath:SetPoint("TOPLEFT", row, "TOPLEFT", 300, -62)
+    row.customSoundPath:SetPoint("TOPLEFT", row, "TOPLEFT", 320, -60)
     row.customSoundPath:SetAutoFocus(false)
+    row.customSoundPath:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(this, "ANCHOR_TOP")
+        GameTooltip:SetText("Custom MPQ sound path")
+        GameTooltip:AddLine("Enter a WAV path inside WoW's game archives.", 1, 1, 1)
+        GameTooltip:AddLine("Example: Sound\\Interface\\RaidWarning.wav", 0.8, 0.8, 0.8)
+        GameTooltip:AddLine("This is not a Windows file path.", 1, 0.3, 0.3)
+        GameTooltip:Show()
+    end)
+    row.customSoundPath:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
 
     row.delete = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
     row.delete:SetWidth(75)
@@ -529,39 +591,6 @@ local function CreateRow(index)
         local r=this.caRow
         if r and FortyOneSCombatAlertDB.alerts[r.index] then
             FortyOneSCombatAlertDB.alerts[r.index].soundEnabled=this:GetChecked()
-        end
-    end)
-
-    row.soundA:SetScript("OnClick", function()
-        local r=this.caRow
-        if r and FortyOneSCombatAlertDB.alerts[r.index] then
-            local alert=FortyOneSCombatAlertDB.alerts[r.index]
-            alert.soundChoice=1
-            r.soundA:SetChecked(true)
-            r.soundB:SetChecked(false)
-            r.soundCustom:SetChecked(false)
-        end
-    end)
-
-    row.soundB:SetScript("OnClick", function()
-        local r=this.caRow
-        if r and FortyOneSCombatAlertDB.alerts[r.index] then
-            local alert=FortyOneSCombatAlertDB.alerts[r.index]
-            alert.soundChoice=2
-            r.soundA:SetChecked(false)
-            r.soundB:SetChecked(true)
-            r.soundCustom:SetChecked(false)
-        end
-    end)
-
-    row.soundCustom:SetScript("OnClick", function()
-        local r=this.caRow
-        if r and FortyOneSCombatAlertDB.alerts[r.index] then
-            local alert=FortyOneSCombatAlertDB.alerts[r.index]
-            alert.soundChoice=3
-            r.soundA:SetChecked(false)
-            r.soundB:SetChecked(false)
-            r.soundCustom:SetChecked(true)
         end
     end)
 
@@ -613,9 +642,6 @@ local function CreateRow(index)
     row.enabled.caRow=row
     row.textEnabled.caRow=row
     row.soundEnabled.caRow=row
-    row.soundA.caRow=row
-    row.soundB.caRow=row
-    row.soundCustom.caRow=row
     row.customSoundPath.caRow=row
     row.chatParty.caRow=row
     row.chatRaid.caRow=row
@@ -650,9 +676,9 @@ RefreshRows = function()
             row.enabled:SetChecked(a.enabled)
             row.textEnabled:SetChecked(a.textEnabled)
             row.soundEnabled:SetChecked(a.soundEnabled)
-            row.soundA:SetChecked((a.soundChoice or 1)==1)
-            row.soundB:SetChecked((a.soundChoice or 1)==2)
-            row.soundCustom:SetChecked((a.soundChoice or 1)==3)
+            UIDropDownMenu_SetSelectedID(row.soundDropdown, a.soundChoice or 1)
+            UIDropDownMenu_SetText(SOUND_OPTIONS[a.soundChoice or 1].name,
+                row.soundDropdown)
             row.customSoundPath:SetText(a.customSoundPath or "Sound\\Interface\\RaidWarning.wav")
             row.chatParty:SetChecked(a.chatParty)
             row.chatRaid:SetChecked(a.chatRaid)
@@ -681,7 +707,7 @@ add:SetText("Add Alert")
 add:SetScript("OnClick",function()
     table.insert(FortyOneSCombatAlertDB.alerts,{
         enabled=true, pattern="", textEnabled=true,
-        soundEnabled=true, soundChoice=1,
+        soundEnabled=true, soundChoice=1, soundChoiceVersion=3,
         customSoundPath="Sound\\Interface\\RaidWarning.wav",
         chatParty=false, chatRaid=false,
         chatSay=false, chatYell=false, text="ALERT!"

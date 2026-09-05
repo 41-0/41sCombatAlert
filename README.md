@@ -63,13 +63,23 @@ Report to channels are selected.
 
 When **Sound** is enabled, a sound is played when the alert is triggered.
 
-Choose one sound source:
+Choose one sound source from the Sound dropdown:
 
 - **Sound A** — Uses the included `SoundA.wav` file.
 - **Sound B** — Uses the included `SoundB.wav` file.
-- **Custom** — Uses the WAV file path entered in the **Path** field.
+- **Sound C** — Uses the included `SoundC.wav` file.
+- **Sound D** — Uses the included `SoundD.wav` file.
+- **Sound E** — Uses the included `SoundE.wav` file.
+- **Sound F** — Uses the included `SoundF.wav` file.
 
-For example:
+You can replace these files with your own .wav files.
+
+
+- **Custom MPQ Path** — Uses the WAV file path entered in the **Custom MPQ**
+  field.
+
+The Custom MPQ field is for an audio path inside the WoW client archives,
+not a Windows file path. For example:
 
 ```
 Sound\Interface\RaidWarning.wav
