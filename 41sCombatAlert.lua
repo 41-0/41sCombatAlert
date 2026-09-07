@@ -239,10 +239,35 @@ local function PlayAlertSound(alert)
     end
 end
 
+-- Message tokens are expanded for both screen text and chat reports.
+-- Replace longer tokens first so %tt is not consumed as %t.
+local function ExpandAlertText(text)
+    local function UnitTokenName(unit, missingText)
+        local name = UnitName(unit)
+        if name and name ~= "" then return name end
+        return missingText
+    end
+
+    text = text or ""
+    text = string.gsub(text, "%%pet", function()
+        return UnitTokenName("pet", "<no pet>")
+    end)
+    text = string.gsub(text, "%%tt", function()
+        return UnitTokenName("targettarget", "<no target's target>")
+    end)
+    text = string.gsub(text, "%%t", function()
+        return UnitTokenName("target", "<no target>")
+    end)
+    text = string.gsub(text, "%%p", function()
+        return UnitTokenName("player", "<no player>")
+    end)
+    return text
+end
+
 -- Send the alert text to every selected chat channel.
 -- Party and raid messages are skipped when the player is not in that type of group.
 local function SendChatReport(alert)
-    local text = alert.text or ""
+    local text = ExpandAlertText(alert.text)
     if text == "" then
         return
     end
@@ -341,7 +366,7 @@ eventFrame:SetScript("OnEvent", function()
 
         if Matches(alert, message) then
             if alert.textEnabled and alert.text ~= "" then
-                ShowAlert(alert.text)
+                ShowAlert(ExpandAlertText(alert.text))
             end
 
             if alert.soundEnabled then

@@ -57,13 +57,22 @@ on the screen when the alert is triggered.
 The same text is also used as the chat-report message when one or more
 Report to channels are selected.
 
+The following message tokens work in both on-screen alerts and chat reports:
+
+- `%t` — Your current target's name
+- `%tt` — Your target's target's name
+- `%p` — Your player name
+- `%pet` — Your current pet's name
+
 ---
 
 ## Sound
 
 When **Sound** is enabled, a sound is played when the alert is triggered.
 
-Choose one sound source from the Sound dropdown:
+### Choose one sound source from the Sound dropdown:
+
+#### **Included Files**
 
 - **Sound A** — Uses the included `SoundA.wav` file.
 - **Sound B** — Uses the included `SoundB.wav` file.
@@ -72,14 +81,14 @@ Choose one sound source from the Sound dropdown:
 - **Sound E** — Uses the included `SoundE.wav` file.
 - **Sound F** — Uses the included `SoundF.wav` file.
 
-### Custom File
+#### **Custom File**
 
 Put your WAV file in the addon's `Sounds` folder and enter its filename in the **File** field.
 For example:
 
   `MySound.wav`
 
-### MPQ Path
+#### **MPQ Path**
 
 Uses the WAV file path entered in the **MPQ** field.
 
@@ -90,7 +99,7 @@ not a Windows file path. For example:
 Sound\Interface\RaidWarning.wav
 ```
 
-You can look for sound file path [here](https://github.com/fondlez/wow-sounds).
+You can look for sound file path [>>>HERE<<<](https://github.com/fondlez/wow-sounds).
 
 ---
 
