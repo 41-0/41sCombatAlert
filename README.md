@@ -34,6 +34,22 @@ Examples:
     currentpet*torment*resisted*
     your taunt was resisted*
 
+### Your spellcast start
+
+You can also trigger an alert when you begin casting a spell. These are addon
+events, not combat-log lines, and only apply to your own casts:
+
+```
+SPELLCAST_START Fireball
+SPELLCAST_START *
+SPELLCAST_CHANNEL_START Mind Flay
+```
+
+`SPELLCAST_START` is sent for casts with a cast time; instant spells do not
+send it. `SPELLCAST_CHANNEL_START` is sent when you begin a channelled spell.
+Spellcast patterns must begin with one of these event names so that normal
+combat-log patterns do not trigger from your casts.
+
 Each alert has:
     Enable
     Text

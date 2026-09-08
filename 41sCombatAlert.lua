@@ -206,6 +206,12 @@ local function Matches(alert, message)
     return WildcardMatch(message, pattern)
 end
 
+local function IsSpellcastPattern(pattern)
+    local lowerPattern = string.lower(pattern or "")
+    return string.find(lowerPattern, "spellcast_start", 1, true) == 1
+        or string.find(lowerPattern, "spellcast_channel_start", 1, true) == 1
+end
+
 -- ============================================================
 -- On-screen alert
 -- ============================================================
@@ -414,9 +420,23 @@ local i
 for i = 1, table.getn(combatEvents) do
     eventFrame:RegisterEvent(combatEvents[i])
 end
+eventFrame:RegisterEvent("SPELLCAST_START")
+eventFrame:RegisterEvent("SPELLCAST_CHANNEL_START")
 
 eventFrame:SetScript("OnEvent", function()
-    local message = arg1
+    local message
+    local isSpellcastEvent = false
+
+    if event == "SPELLCAST_START" then
+        message = "SPELLCAST_START "..(arg1 or "")
+        isSpellcastEvent = true
+    elseif event == "SPELLCAST_CHANNEL_START" then
+        message = "SPELLCAST_CHANNEL_START "..(arg2 or "")
+        isSpellcastEvent = true
+    else
+        message = arg1
+    end
+
     if not message then
         return
     end
@@ -425,7 +445,9 @@ eventFrame:SetScript("OnEvent", function()
     for i = 1, table.getn(FortyOneSCombatAlertDB.alerts) do
         local alert = FortyOneSCombatAlertDB.alerts[i]
 
-        if not alert.parentId and Matches(alert, message) then
+        if not alert.parentId
+            and (not isSpellcastEvent or IsSpellcastPattern(alert.pattern))
+            and Matches(alert, message) then
             TriggerAlert(SelectGroupReaction(alert))
         end
     end
