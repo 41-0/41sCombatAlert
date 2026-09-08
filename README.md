@@ -103,6 +103,21 @@ You can look for sound file path [>>>HERE<<<](https://github.com/fondlez/wow-sou
 
 ---
 
+## Sound sequences and random groups
+
+Press **Sequence** or **Random** on a parent alert to add a child alert.
+Child alerts inherit the parent's Pattern, which cannot be edited, while their
+Text, Sound, and Report to settings can be configured independently.
+
+The parent alert is included as the first reaction:
+
+- **Sequence** — Uses the parent reaction, then each enabled child reaction in
+  order, and repeats from the beginning.
+- **Random** — Randomly selects the parent reaction or one enabled child
+  reaction each time the pattern matches.
+
+---
+
 ## Starter examples
 
 The Taunt-resisted example is enabled by default, has Text and Sound enabled,
