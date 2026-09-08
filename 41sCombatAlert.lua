@@ -14,6 +14,12 @@
 FortyOneSCombatAlertDB = FortyOneSCombatAlertDB or {}
 FortyOneSCombatAlertDB.alerts = FortyOneSCombatAlertDB.alerts or {}
 
+local function CreateAlertId()
+    FortyOneSCombatAlertDB.nextAlertId =
+        (FortyOneSCombatAlertDB.nextAlertId or 0) + 1
+    return FortyOneSCombatAlertDB.nextAlertId
+end
+
 local ALERT_TIME = 3
 local ADDON_SOUND_DIRECTORY = "Interface\\AddOns\\41sCombatAlert\\Sounds\\"
 local SOUND_OPTIONS = {
@@ -31,6 +37,7 @@ local function EnsureDefaults()
     if table.getn(FortyOneSCombatAlertDB.alerts) == 0 then
         table.insert(FortyOneSCombatAlertDB.alerts, {
             enabled = true,
+            id = CreateAlertId(),
             pattern = "currentpet*torment*resisted*",
             textEnabled = true,
             soundEnabled = true,
@@ -49,6 +56,7 @@ local function EnsureDefaults()
     if not FortyOneSCombatAlertDB.tauntExampleAdded then
         table.insert(FortyOneSCombatAlertDB.alerts, {
             enabled = true,
+            id = CreateAlertId(),
             pattern = "your taunt was resisted*",
             textEnabled = true,
             soundEnabled = true,
@@ -67,8 +75,15 @@ local function EnsureDefaults()
 
     -- Add new options to alerts saved by older versions.
     local i
+    local nextAlertId = FortyOneSCombatAlertDB.nextAlertId or 0
     for i = 1, table.getn(FortyOneSCombatAlertDB.alerts) do
         local alert = FortyOneSCombatAlertDB.alerts[i]
+        if alert.id then
+            if alert.id > nextAlertId then nextAlertId = alert.id end
+        else
+            nextAlertId = nextAlertId + 1
+            alert.id = nextAlertId
+        end
         if alert.chatParty == nil then alert.chatParty = false end
         if alert.chatRaid == nil then alert.chatRaid = false end
         if alert.chatSay == nil then alert.chatSay = false end
@@ -108,6 +123,7 @@ local function EnsureDefaults()
             alert.soundChoiceVersion = 4
         end
     end
+    FortyOneSCombatAlertDB.nextAlertId = nextAlertId
 end
 
 -- Case-insensitive wildcard matcher.
@@ -286,6 +302,51 @@ local function SendChatReport(alert)
     end
 end
 
+local function TriggerAlert(alert)
+    if alert.textEnabled and alert.text ~= "" then
+        ShowAlert(ExpandAlertText(alert.text))
+    end
+    if alert.soundEnabled then
+        PlayAlertSound(alert)
+    end
+    SendChatReport(alert)
+end
+
+local function GetChildAlerts(parent)
+    local children = {}
+    local i
+    for i = 1, table.getn(FortyOneSCombatAlertDB.alerts) do
+        local alert = FortyOneSCombatAlertDB.alerts[i]
+        if alert.parentId == parent.id and alert.enabled then
+            table.insert(children, alert)
+        end
+    end
+    return children
+end
+
+local function SelectGroupReaction(parent)
+    local children = GetChildAlerts(parent)
+    if not parent.playMode or table.getn(children) == 0 then
+        return parent
+    end
+
+    local choices = { parent }
+    local i
+    for i = 1, table.getn(children) do
+        table.insert(choices, children[i])
+    end
+
+    if parent.playMode == "random" then
+        return choices[math.random(1, table.getn(choices))]
+    end
+
+    parent.sequencePosition = (parent.sequencePosition or 0) + 1
+    if parent.sequencePosition > table.getn(choices) then
+        parent.sequencePosition = 1
+    end
+    return choices[parent.sequencePosition]
+end
+
 -- ============================================================
 -- Vanilla 1.12.1 combat/spell events
 -- ============================================================
@@ -364,16 +425,8 @@ eventFrame:SetScript("OnEvent", function()
     for i = 1, table.getn(FortyOneSCombatAlertDB.alerts) do
         local alert = FortyOneSCombatAlertDB.alerts[i]
 
-        if Matches(alert, message) then
-            if alert.textEnabled and alert.text ~= "" then
-                ShowAlert(ExpandAlertText(alert.text))
-            end
-
-            if alert.soundEnabled then
-                PlayAlertSound(alert)
-            end
-
-            SendChatReport(alert)
+        if not alert.parentId and Matches(alert, message) then
+            TriggerAlert(SelectGroupReaction(alert))
         end
     end
 end)
@@ -465,7 +518,7 @@ local function CreateInputBox(parent)
 end
 
 local function SetSoundDropdownSelection(row, choice)
-    local alert = FortyOneSCombatAlertDB.alerts[row.index]
+    local alert = row.alert
     if not alert then return end
 
     alert.soundChoice = choice
@@ -480,6 +533,76 @@ local function AddSoundDropdownOption(row, choice)
         SetSoundDropdownSelection(row, choice)
     end
     UIDropDownMenu_AddButton(info)
+end
+
+local function BuildDisplayEntries()
+    local entries = {}
+    local parentNumber = 0
+    local i
+    local j
+
+    for i = 1, table.getn(FortyOneSCombatAlertDB.alerts) do
+        local parent = FortyOneSCombatAlertDB.alerts[i]
+        if not parent.parentId then
+            parentNumber = parentNumber + 1
+            table.insert(entries, {
+                alert = parent,
+                recordIndex = i,
+                isChild = false,
+                label = tostring(parentNumber)
+            })
+
+            local childNumber = 0
+            for j = 1, table.getn(FortyOneSCombatAlertDB.alerts) do
+                local child = FortyOneSCombatAlertDB.alerts[j]
+                if child.parentId == parent.id then
+                    childNumber = childNumber + 1
+                    table.insert(entries, {
+                        alert = child,
+                        recordIndex = j,
+                        parent = parent,
+                        isChild = true,
+                        label = tostring(parentNumber).."."..childNumber
+                    })
+                end
+            end
+        end
+    end
+
+    return entries
+end
+
+local function AddChildAlert(parent, mode)
+    parent.playMode = mode
+    parent.sequencePosition = 0
+
+    local child = {
+        id = CreateAlertId(),
+        parentId = parent.id,
+        enabled = true,
+        textEnabled = true,
+        soundEnabled = true,
+        soundChoice = 1,
+        soundChoiceVersion = 4,
+        customFileName = "",
+        customSoundPath = "Sound\\Interface\\RaidWarning.wav",
+        chatParty = false,
+        chatRaid = false,
+        chatSay = false,
+        chatYell = false,
+        text = "ALERT!"
+    }
+    table.insert(FortyOneSCombatAlertDB.alerts, child)
+
+    local entries = BuildDisplayEntries()
+    local i
+    for i = 1, table.getn(entries) do
+        if entries[i].alert == child then
+            currentPage = math.ceil(i / ROWS_PER_PAGE)
+            break
+        end
+    end
+    RefreshRows()
 end
 
 local function CreateRow(index)
@@ -527,6 +650,18 @@ local function CreateRow(index)
     row.soundEnabledLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     row.soundEnabledLabel:SetPoint("LEFT", row.soundEnabled, "RIGHT", 0, 0)
     row.soundEnabledLabel:SetText("Sound")
+    
+    row.sequence = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+    row.sequence:SetWidth(80)
+    row.sequence:SetHeight(22)
+    row.sequence:SetPoint("TOPLEFT", row, "TOPLEFT", 550, -62)
+    row.sequence:SetText("Sequence")
+
+    row.random = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+    row.random:SetWidth(75)
+    row.random:SetHeight(22)
+    row.random:SetPoint("TOPLEFT", row, "TOPLEFT", 635, -62)
+    row.random:SetText("Random")
 
     row.chatLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     row.chatLabel:SetPoint("TOPLEFT", row, "TOPLEFT", 38, -96)
@@ -620,86 +755,111 @@ local function CreateRow(index)
 
     row.pattern:SetScript("OnTextChanged", function()
         local r=this.caRow
-        if r and FortyOneSCombatAlertDB.alerts[r.index] then
-            FortyOneSCombatAlertDB.alerts[r.index].pattern=this:GetText()
+        if r and r.alert and not r.isChild then
+            r.alert.pattern=this:GetText()
         end
     end)
 
     row.text:SetScript("OnTextChanged", function()
         local r=this.caRow
-        if r and FortyOneSCombatAlertDB.alerts[r.index] then
-            FortyOneSCombatAlertDB.alerts[r.index].text=this:GetText()
+        if r and r.alert then
+            r.alert.text=this:GetText()
         end
     end)
 
     row.enabled:SetScript("OnClick", function()
         local r=this.caRow
-        if r and FortyOneSCombatAlertDB.alerts[r.index] then
-            FortyOneSCombatAlertDB.alerts[r.index].enabled=this:GetChecked()
+        if r and r.alert then
+            r.alert.enabled=this:GetChecked()
         end
     end)
 
     row.textEnabled:SetScript("OnClick", function()
         local r=this.caRow
-        if r and FortyOneSCombatAlertDB.alerts[r.index] then
-            FortyOneSCombatAlertDB.alerts[r.index].textEnabled=this:GetChecked()
+        if r and r.alert then
+            r.alert.textEnabled=this:GetChecked()
         end
     end)
 
     row.soundEnabled:SetScript("OnClick", function()
         local r=this.caRow
-        if r and FortyOneSCombatAlertDB.alerts[r.index] then
-            FortyOneSCombatAlertDB.alerts[r.index].soundEnabled=this:GetChecked()
+        if r and r.alert then
+            r.alert.soundEnabled=this:GetChecked()
         end
     end)
 
     row.customSoundPath:SetScript("OnTextChanged", function()
         local r=this.caRow
-        if r and FortyOneSCombatAlertDB.alerts[r.index] then
-            FortyOneSCombatAlertDB.alerts[r.index].customSoundPath=this:GetText()
+        if r and r.alert then
+            r.alert.customSoundPath=this:GetText()
         end
     end)
 
     row.customFileName:SetScript("OnTextChanged", function()
         local r=this.caRow
-        if r and FortyOneSCombatAlertDB.alerts[r.index] then
-            FortyOneSCombatAlertDB.alerts[r.index].customFileName=this:GetText()
+        if r and r.alert then
+            r.alert.customFileName=this:GetText()
         end
     end)
 
     row.chatParty:SetScript("OnClick", function()
         local r=this.caRow
-        if r and FortyOneSCombatAlertDB.alerts[r.index] then
-            FortyOneSCombatAlertDB.alerts[r.index].chatParty=this:GetChecked()
+        if r and r.alert then
+            r.alert.chatParty=this:GetChecked()
         end
     end)
 
     row.chatRaid:SetScript("OnClick", function()
         local r=this.caRow
-        if r and FortyOneSCombatAlertDB.alerts[r.index] then
-            FortyOneSCombatAlertDB.alerts[r.index].chatRaid=this:GetChecked()
+        if r and r.alert then
+            r.alert.chatRaid=this:GetChecked()
         end
     end)
 
     row.chatSay:SetScript("OnClick", function()
         local r=this.caRow
-        if r and FortyOneSCombatAlertDB.alerts[r.index] then
-            FortyOneSCombatAlertDB.alerts[r.index].chatSay=this:GetChecked()
+        if r and r.alert then
+            r.alert.chatSay=this:GetChecked()
         end
     end)
 
     row.chatYell:SetScript("OnClick", function()
         local r=this.caRow
-        if r and FortyOneSCombatAlertDB.alerts[r.index] then
-            FortyOneSCombatAlertDB.alerts[r.index].chatYell=this:GetChecked()
+        if r and r.alert then
+            r.alert.chatYell=this:GetChecked()
         end
     end)
 
     row.delete:SetScript("OnClick", function()
         local r=this.caRow
-        if r and FortyOneSCombatAlertDB.alerts[r.index] then
-            table.remove(FortyOneSCombatAlertDB.alerts,r.index)
+        if r and r.alert then
+            if r.isChild then
+                table.remove(FortyOneSCombatAlertDB.alerts, r.recordIndex)
+            else
+                local parentId = r.alert.id
+                local i
+                for i = table.getn(FortyOneSCombatAlertDB.alerts), 1, -1 do
+                    local alert = FortyOneSCombatAlertDB.alerts[i]
+                    if alert.id == parentId or alert.parentId == parentId then
+                        table.remove(FortyOneSCombatAlertDB.alerts, i)
+                    end
+                end
+            end
             RefreshRows()
+        end
+    end)
+
+    row.sequence:SetScript("OnClick", function()
+        local r = this.caRow
+        if r and r.alert and not r.isChild then
+            AddChildAlert(r.alert, "sequence")
+        end
+    end)
+
+    row.random:SetScript("OnClick", function()
+        local r = this.caRow
+        if r and r.alert and not r.isChild then
+            AddChildAlert(r.alert, "random")
         end
     end)
 
@@ -715,12 +875,15 @@ local function CreateRow(index)
     row.chatSay.caRow=row
     row.chatYell.caRow=row
     row.delete.caRow=row
+    row.sequence.caRow=row
+    row.random.caRow=row
     row.index=index
     return row
 end
 
 RefreshRows = function()
-    local count=table.getn(FortyOneSCombatAlertDB.alerts)
+    local entries = BuildDisplayEntries()
+    local count=table.getn(entries)
     local pageCount=math.max(1,math.ceil(count/ROWS_PER_PAGE))
     local slot
 
@@ -733,12 +896,33 @@ RefreshRows = function()
         local row=rows[slot]
 
         if index<=count then
-            row.index=index
+            local entry = entries[index]
+            local a = entry.alert
+            row.index=entry.recordIndex
+            row.recordIndex=entry.recordIndex
+            row.alert=a
+            row.parent=entry.parent
+            row.isChild=entry.isChild
             row:SetPoint("TOPLEFT",scrollChild,"TOPLEFT",0,-((slot-1)*rowHeight))
 
-            local a=FortyOneSCombatAlertDB.alerts[index]
-            row.number:SetText(tostring(index))
-            row.pattern:SetText(a.pattern or "")
+            row.number:SetText(entry.label)
+            if entry.isChild then
+                row.patternLabel:SetText("Pattern:")
+                row.pattern:SetText(entry.parent.pattern or "")
+                row.pattern:SetTextColor(0.7, 0.7, 0.7)
+                row.pattern:SetScript("OnEditFocusGained", function()
+                    this:ClearFocus()
+                end)
+                row.sequence:Hide()
+                row.random:Hide()
+            else
+                row.patternLabel:SetText("Pattern:")
+                row.pattern:SetScript("OnEditFocusGained", nil)
+                row.pattern:SetTextColor(1, 1, 1)
+                row.pattern:SetText(a.pattern or "")
+                row.sequence:Show()
+                row.random:Show()
+            end
             row.text:SetText(a.text or "")
             row.enabled:SetChecked(a.enabled)
             row.textEnabled:SetChecked(a.textEnabled)
@@ -774,14 +958,14 @@ add:SetPoint("BOTTOMLEFT",config,"BOTTOMLEFT",25,18)
 add:SetText("Add Alert")
 add:SetScript("OnClick",function()
     table.insert(FortyOneSCombatAlertDB.alerts,{
-        enabled=true, pattern="", textEnabled=true,
+        id=CreateAlertId(), enabled=true, pattern="", textEnabled=true,
         soundEnabled=true, soundChoice=1, soundChoiceVersion=4,
         customFileName="",
         customSoundPath="Sound\\Interface\\RaidWarning.wav",
         chatParty=false, chatRaid=false,
         chatSay=false, chatYell=false, text="ALERT!"
     })
-    currentPage=math.ceil(table.getn(FortyOneSCombatAlertDB.alerts)/ROWS_PER_PAGE)
+    currentPage=math.ceil(table.getn(BuildDisplayEntries())/ROWS_PER_PAGE)
     RefreshRows()
 end)
 
