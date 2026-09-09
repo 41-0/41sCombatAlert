@@ -50,6 +50,11 @@ send it. `SPELLCAST_CHANNEL_START` is sent when you begin a channelled spell.
 Spellcast patterns must begin with one of these event names so that normal
 combat-log patterns do not trigger from your casts.
 
+On standard 1.12.1 clients, the channel start event normally includes the
+spell name. Turtle WoW-based clients may instead provide the generic text
+`Channeling`, so `SPELLCAST_CHANNEL_START *` is the reliable pattern for
+channel starts on those clients.
+
 Each alert has:
     Enable
     Text
