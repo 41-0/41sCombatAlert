@@ -33,6 +33,19 @@ Examples:
 
     currentpet*torment*resisted*
     your taunt was resisted*
+  
+### Exceptions
+
+Use the **Except** field to prevent an alert when the combat-log message
+contains an exception entry. Separate multiple entries with `|`. Whitespace around `|` is
+ignored.
+
+Example:
+
+    Pattern:  you gain*
+    Except:   thorns|rejuvenation
+
+plain text: `*` is not a wildcard.
 
 ### Your spellcast start
 

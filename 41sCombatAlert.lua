@@ -39,6 +39,7 @@ local function EnsureDefaults()
             enabled = true,
             id = CreateAlertId(),
             pattern = "currentpet*torment*resisted*",
+            exceptions = "",
             textEnabled = true,
             soundEnabled = true,
             soundChoice = 1,
@@ -58,6 +59,7 @@ local function EnsureDefaults()
             enabled = true,
             id = CreateAlertId(),
             pattern = "your taunt was resisted*",
+            exceptions = "",
             textEnabled = true,
             soundEnabled = true,
             soundChoice = 1,
@@ -88,6 +90,7 @@ local function EnsureDefaults()
         if alert.chatRaid == nil then alert.chatRaid = false end
         if alert.chatSay == nil then alert.chatSay = false end
         if alert.chatYell == nil then alert.chatYell = false end
+        if alert.exceptions == nil then alert.exceptions = "" end
         if alert.soundChoice == nil then alert.soundChoice = 1 end
         if alert.customSoundPath == nil then
             alert.customSoundPath = "Sound\\Interface\\RaidWarning.wav"
@@ -203,7 +206,28 @@ local function Matches(alert, message)
         return false
     end
 
-    return WildcardMatch(message, pattern)
+    if not WildcardMatch(message, pattern) then
+        return false
+    end
+
+    local exceptions = alert.exceptions or ""
+    local exceptionPattern
+    for exceptionPattern in string.gfind(exceptions, "[^|]+") do
+        exceptionPattern = string.gsub(exceptionPattern, "^%s+", "")
+        exceptionPattern = string.gsub(exceptionPattern, "%s+$", "")
+        if exceptionPattern ~= "" then
+            exceptionPattern = ExpandPattern(exceptionPattern)
+            if exceptionPattern and string.find(
+                string.lower(message or ""),
+                string.lower(exceptionPattern),
+                1,
+                true) then
+                return false
+            end
+        end
+    end
+
+    return true
 end
 
 local function IsSpellcastPattern(pattern)
@@ -601,6 +625,7 @@ local function AddChildAlert(parent, mode)
     local child = {
         id = CreateAlertId(),
         parentId = parent.id,
+        exceptions = "",
         enabled = true,
         textEnabled = true,
         soundEnabled = true,
@@ -640,7 +665,7 @@ local function CreateRow(index)
     row.patternLabel:SetText("Pattern:")
 
     row.pattern = CreateInputBox(row)
-    row.pattern:SetWidth(450)
+    row.pattern:SetWidth(270)
     row.pattern:SetHeight(24)
     row.pattern:SetPoint("TOPLEFT", row, "TOPLEFT", 90, -4)
     row.pattern:SetAutoFocus(false)
@@ -672,10 +697,30 @@ local function CreateRow(index)
     row.soundEnabledLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     row.soundEnabledLabel:SetPoint("LEFT", row.soundEnabled, "RIGHT", 0, 0)
     row.soundEnabledLabel:SetText("Sound")
+
+    row.exceptionsLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    row.exceptionsLabel:SetPoint("TOPLEFT", row, "TOPLEFT", 370, -9)
+    row.exceptionsLabel:SetText("Except:")
+
+    row.exceptions = CreateInputBox(row)
+    row.exceptions:SetWidth(130)
+    row.exceptions:SetHeight(24)
+    row.exceptions:SetPoint("TOPLEFT", row, "TOPLEFT", 410, -4)
+    row.exceptions:SetAutoFocus(false)
+    row.exceptions:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(this, "ANCHOR_TOP")
+        GameTooltip:SetText("Exception text")
+        GameTooltip:AddLine("Separate multiple entries with |", 1, 1, 1)
+        GameTooltip:AddLine("Containing an entry prevents this alert.", 0.8, 0.8, 0.8)
+        GameTooltip:Show()
+    end)
+    row.exceptions:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
     
     row.createChild = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    row.createChild:SetPoint("TOPLEFT", row, "TOPLEFT", 602, -73)
-    row.createChild:SetText("Create Child")
+    row.createChild:SetPoint("TOPLEFT", row, "TOPLEFT", 490, -94)
+    row.createChild:SetText("Create Child:")
 
     row.sequence = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
     row.sequence:SetWidth(75)
@@ -793,6 +838,13 @@ local function CreateRow(index)
         end
     end)
 
+    row.exceptions:SetScript("OnTextChanged", function()
+        local r=this.caRow
+        if r and r.alert then
+            r.alert.exceptions=this:GetText()
+        end
+    end)
+
     row.enabled:SetScript("OnClick", function()
         local r=this.caRow
         if r and r.alert then
@@ -891,6 +943,7 @@ local function CreateRow(index)
 
     row.pattern.caRow=row
     row.text.caRow=row
+    row.exceptions.caRow=row
     row.enabled.caRow=row
     row.textEnabled.caRow=row
     row.soundEnabled.caRow=row
@@ -952,6 +1005,7 @@ RefreshRows = function()
                 row.createChild:Show()
             end
             row.text:SetText(a.text or "")
+            row.exceptions:SetText(a.exceptions or "")
             row.enabled:SetChecked(a.enabled)
             row.textEnabled:SetChecked(a.textEnabled)
             row.soundEnabled:SetChecked(a.soundEnabled)
@@ -986,7 +1040,7 @@ add:SetPoint("BOTTOMLEFT",config,"BOTTOMLEFT",25,18)
 add:SetText("Add Alert")
 add:SetScript("OnClick",function()
     table.insert(FortyOneSCombatAlertDB.alerts,{
-        id=CreateAlertId(), enabled=true, pattern="", textEnabled=true,
+        id=CreateAlertId(), enabled=true, pattern="", exceptions="", textEnabled=true,
         soundEnabled=true, soundChoice=1, soundChoiceVersion=4,
         customFileName="",
         customSoundPath="Sound\\Interface\\RaidWarning.wav",
