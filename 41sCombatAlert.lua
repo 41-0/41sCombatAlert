@@ -90,6 +90,8 @@ local function EnsureDefaults()
         if alert.chatRaid == nil then alert.chatRaid = false end
         if alert.chatSay == nil then alert.chatSay = false end
         if alert.chatYell == nil then alert.chatYell = false end
+        if alert.chatGuild == nil then alert.chatGuild = false end
+        if alert.chatCustomChannel == nil then alert.chatCustomChannel = "" end
         if alert.exceptions == nil then alert.exceptions = "" end
         if alert.soundChoice == nil then alert.soundChoice = 1 end
         if alert.customSoundPath == nil then
@@ -329,6 +331,15 @@ local function SendChatReport(alert)
     end
     if alert.chatYell then
         SendChatMessage(text, "YELL")
+    end
+    if alert.chatGuild and GetGuildInfo("player") then
+        SendChatMessage(text, "GUILD")
+    end
+    if alert.chatCustomChannel and alert.chatCustomChannel ~= "" then
+        local channelNumber = GetChannelName(alert.chatCustomChannel)
+        if channelNumber and channelNumber > 0 then
+            SendChatMessage(text, "CHANNEL", nil, channelNumber)
+        end
     end
 end
 
@@ -626,6 +637,8 @@ local function AddChildAlert(parent, mode)
         id = CreateAlertId(),
         parentId = parent.id,
         exceptions = "",
+        chatGuild = false,
+        chatCustomChannel = "",
         enabled = true,
         textEnabled = true,
         soundEnabled = true,
@@ -686,6 +699,7 @@ local function CreateRow(index)
     row.enabledLabel:SetPoint("LEFT", row.enabled, "RIGHT", 0, 0)
     row.enabledLabel:SetText("Enable")
 
+
     row.textEnabled = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
     row.textEnabled:SetPoint("TOPLEFT", row, "TOPLEFT", 550, -34)
     row.textEnabledLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -719,7 +733,7 @@ local function CreateRow(index)
     end)
     
     row.createChild = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    row.createChild:SetPoint("TOPLEFT", row, "TOPLEFT", 490, -94)
+    row.createChild:SetPoint("TOPLEFT", row, "TOPLEFT", 565, -75)
     row.createChild:SetText("Create Child:")
 
     row.sequence = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
@@ -736,31 +750,57 @@ local function CreateRow(index)
 
     row.chatLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     row.chatLabel:SetPoint("TOPLEFT", row, "TOPLEFT", 38, -96)
-    row.chatLabel:SetText("Report to:")
+    row.chatLabel:SetText("Report:")
 
     row.chatParty = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
-    row.chatParty:SetPoint("TOPLEFT", row, "TOPLEFT", 105, -89)
+    row.chatParty:SetPoint("TOPLEFT", row, "TOPLEFT", 85, -85)
     row.chatPartyLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     row.chatPartyLabel:SetPoint("LEFT", row.chatParty, "RIGHT", 0, 0)
     row.chatPartyLabel:SetText("Party")
 
     row.chatRaid = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
-    row.chatRaid:SetPoint("TOPLEFT", row, "TOPLEFT", 190, -89)
+    row.chatRaid:SetPoint("TOPLEFT", row, "TOPLEFT", 155, -85)
     row.chatRaidLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     row.chatRaidLabel:SetPoint("LEFT", row.chatRaid, "RIGHT", 0, 0)
     row.chatRaidLabel:SetText("Raid")
 
     row.chatSay = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
-    row.chatSay:SetPoint("TOPLEFT", row, "TOPLEFT", 265, -89)
+    row.chatSay:SetPoint("TOPLEFT", row, "TOPLEFT", 225, -85)
     row.chatSayLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     row.chatSayLabel:SetPoint("LEFT", row.chatSay, "RIGHT", 0, 0)
     row.chatSayLabel:SetText("Say")
 
     row.chatYell = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
-    row.chatYell:SetPoint("TOPLEFT", row, "TOPLEFT", 335, -89)
+    row.chatYell:SetPoint("TOPLEFT", row, "TOPLEFT", 295, -85)
     row.chatYellLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     row.chatYellLabel:SetPoint("LEFT", row.chatYell, "RIGHT", 0, 0)
     row.chatYellLabel:SetText("Yell")
+
+    row.chatGuild = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
+    row.chatGuild:SetPoint("TOPLEFT", row, "TOPLEFT", 365, -85)
+    row.chatGuildLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    row.chatGuildLabel:SetPoint("LEFT", row.chatGuild, "RIGHT", 0, 0)
+    row.chatGuildLabel:SetText("Guild")
+
+    row.chatCustomChannelLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    row.chatCustomChannelLabel:SetPoint("TOPLEFT", row, "TOPLEFT", 445, -96)
+    row.chatCustomChannelLabel:SetText("Ch:")
+
+    row.chatCustomChannel = CreateInputBox(row)
+    row.chatCustomChannel:SetWidth(75)
+    row.chatCustomChannel:SetHeight(24)
+    row.chatCustomChannel:SetPoint("TOPLEFT", row, "TOPLEFT", 465, -88)
+    row.chatCustomChannel:SetAutoFocus(false)
+    row.chatCustomChannel:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(this, "ANCHOR_TOP")
+        GameTooltip:SetText("Custom chat channel")
+        GameTooltip:AddLine("Enter a channel you have joined.", 1, 1, 1)
+        GameTooltip:AddLine("The alert Text is sent to this channel.", 0.8, 0.8, 0.8)
+        GameTooltip:Show()
+    end)
+    row.chatCustomChannel:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
 
     row.soundLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     row.soundLabel:SetPoint("TOPLEFT", row, "TOPLEFT", 38, -66)
@@ -838,6 +878,13 @@ local function CreateRow(index)
         end
     end)
 
+    row.chatCustomChannel:SetScript("OnTextChanged", function()
+        local r=this.caRow
+        if r and r.alert then
+            r.alert.chatCustomChannel=this:GetText()
+        end
+    end)
+
     row.exceptions:SetScript("OnTextChanged", function()
         local r=this.caRow
         if r and r.alert then
@@ -849,6 +896,13 @@ local function CreateRow(index)
         local r=this.caRow
         if r and r.alert then
             r.alert.enabled=this:GetChecked()
+        end
+    end)
+
+    row.chatGuild:SetScript("OnClick", function()
+        local r=this.caRow
+        if r and r.alert then
+            r.alert.chatGuild=this:GetChecked()
         end
     end)
 
@@ -943,8 +997,10 @@ local function CreateRow(index)
 
     row.pattern.caRow=row
     row.text.caRow=row
+    row.chatCustomChannel.caRow=row
     row.exceptions.caRow=row
     row.enabled.caRow=row
+    row.chatGuild.caRow=row
     row.textEnabled.caRow=row
     row.soundEnabled.caRow=row
     row.customFileName.caRow=row
@@ -1005,8 +1061,10 @@ RefreshRows = function()
                 row.createChild:Show()
             end
             row.text:SetText(a.text or "")
+            row.chatCustomChannel:SetText(a.chatCustomChannel or "")
             row.exceptions:SetText(a.exceptions or "")
             row.enabled:SetChecked(a.enabled)
+            row.chatGuild:SetChecked(a.chatGuild)
             row.textEnabled:SetChecked(a.textEnabled)
             row.soundEnabled:SetChecked(a.soundEnabled)
             UIDropDownMenu_SetSelectedID(row.soundDropdown, a.soundChoice or 1)
@@ -1040,7 +1098,7 @@ add:SetPoint("BOTTOMLEFT",config,"BOTTOMLEFT",25,18)
 add:SetText("Add Alert")
 add:SetScript("OnClick",function()
     table.insert(FortyOneSCombatAlertDB.alerts,{
-        id=CreateAlertId(), enabled=true, pattern="", exceptions="", textEnabled=true,
+        id=CreateAlertId(), enabled=true, pattern="", exceptions="", chatGuild=false, chatCustomChannel="", textEnabled=true,
         soundEnabled=true, soundChoice=1, soundChoiceVersion=4,
         customFileName="",
         customSoundPath="Sound\\Interface\\RaidWarning.wav",
