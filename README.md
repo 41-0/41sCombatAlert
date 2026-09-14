@@ -78,6 +78,9 @@ More than one report channel can be selected. The Text field is used as both
 the on-screen alert and the chat-report message. Party and Raid messages are
 sent only while you are in a party or raid respectively.
 
+Enter the name of a custom channel in the **Ch:** field to send the same
+Text there as well. You must have joined that channel.
+
 The alert editor displays four alerts per page. Use Previous and Next to move
 between pages.
 
