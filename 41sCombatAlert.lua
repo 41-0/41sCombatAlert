@@ -493,7 +493,7 @@ end)
 -- ============================================================
 
 local config = CreateFrame("Frame", "FortyOneSCombatAlertConfigFrame", UIParent)
-config:SetWidth(800)
+config:SetWidth(765)
 config:SetHeight(620)
 config:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 config:SetFrameStrata("DIALOG")
@@ -694,23 +694,29 @@ local function CreateRow(index)
     row.text:SetAutoFocus(false)
 
     row.enabled = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
-    row.enabled:SetPoint("TOPLEFT", row, "TOPLEFT", 550, -4)
+    row.enabled:SetPoint("TOPLEFT", row, "TOPLEFT", 550, 0)
     row.enabledLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     row.enabledLabel:SetPoint("LEFT", row.enabled, "RIGHT", 0, 0)
     row.enabledLabel:SetText("Enable")
 
 
     row.textEnabled = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
-    row.textEnabled:SetPoint("TOPLEFT", row, "TOPLEFT", 550, -34)
+    row.textEnabled:SetPoint("TOPLEFT", row, "TOPLEFT", 550, -28)
     row.textEnabledLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     row.textEnabledLabel:SetPoint("LEFT", row.textEnabled, "RIGHT", 0, 0)
     row.textEnabledLabel:SetText("Text")
 
     row.soundEnabled = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
-    row.soundEnabled:SetPoint("TOPLEFT", row, "TOPLEFT", 648, -34)
+    row.soundEnabled:SetPoint("TOPLEFT", row, "TOPLEFT", 550, -56)
     row.soundEnabledLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     row.soundEnabledLabel:SetPoint("LEFT", row.soundEnabled, "RIGHT", 0, 0)
     row.soundEnabledLabel:SetText("Sound")
+    
+    row.test = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+    row.test:SetWidth(75)
+    row.test:SetHeight(22)
+    row.test:SetPoint("TOPRIGHT", row, "TOPRIGHT", -5, -31)
+    row.test:SetText("Test")
 
     row.exceptionsLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     row.exceptionsLabel:SetPoint("TOPLEFT", row, "TOPLEFT", 370, -9)
@@ -733,7 +739,7 @@ local function CreateRow(index)
     end)
     
     row.createChild = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    row.createChild:SetPoint("TOPLEFT", row, "TOPLEFT", 565, -75)
+    row.createChild:SetPoint("TOPRIGHT", row, "TOPRIGHT", -10, -75)
     row.createChild:SetText("Create Child:")
 
     row.sequence = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
@@ -861,7 +867,7 @@ local function CreateRow(index)
     row.delete = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
     row.delete:SetWidth(75)
     row.delete:SetHeight(22)
-    row.delete:SetPoint("BOTTOMRIGHT", row, "TOPRIGHT", -5, -30)
+    row.delete:SetPoint("BOTTOMRIGHT", row, "TOPRIGHT", -5, -26)
     row.delete:SetText("Delete")
 
     row.pattern:SetScript("OnTextChanged", function()
@@ -917,6 +923,13 @@ local function CreateRow(index)
         local r=this.caRow
         if r and r.alert then
             r.alert.soundEnabled=this:GetChecked()
+        end
+    end)
+    
+    row.test:SetScript("OnClick", function()
+        local r=this.caRow
+        if r and r.alert then
+            TriggerAlert(r.alert)
         end
     end)
 
@@ -1003,6 +1016,7 @@ local function CreateRow(index)
     row.chatGuild.caRow=row
     row.textEnabled.caRow=row
     row.soundEnabled.caRow=row
+    row.test.caRow=row
     row.customFileName.caRow=row
     row.customSoundPath.caRow=row
     row.chatParty.caRow=row
