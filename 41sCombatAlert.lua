@@ -665,6 +665,54 @@ local function AddChildAlert(parent, mode)
     RefreshRows()
 end
 
+local pendingDeleteAlertId
+
+local function DeleteAlertById(alertId)
+    local target
+    local targetIndex
+    local i
+
+    for i = 1, table.getn(FortyOneSCombatAlertDB.alerts) do
+        if FortyOneSCombatAlertDB.alerts[i].id == alertId then
+            target = FortyOneSCombatAlertDB.alerts[i]
+            targetIndex = i
+            break
+        end
+    end
+
+    if not target then return end
+
+    if target.parentId then
+        table.remove(FortyOneSCombatAlertDB.alerts, targetIndex)
+    else
+        for i = table.getn(FortyOneSCombatAlertDB.alerts), 1, -1 do
+            local alert = FortyOneSCombatAlertDB.alerts[i]
+            if alert.id == alertId or alert.parentId == alertId then
+                table.remove(FortyOneSCombatAlertDB.alerts, i)
+            end
+        end
+    end
+    RefreshRows()
+end
+
+StaticPopupDialogs["FORTYONESCOMBATALERT_DELETE_ALERT"] = {
+    text = "Are you sure you want to delete %s?",
+    button1 = "Delete",
+    button2 = "Cancel",
+    timeout = 0,
+    whileDead = 1,
+    hideOnEscape = 1,
+    OnAccept = function()
+        if pendingDeleteAlertId then
+            DeleteAlertById(pendingDeleteAlertId)
+            pendingDeleteAlertId = nil
+        end
+    end,
+    OnCancel = function()
+        pendingDeleteAlertId = nil
+    end
+}
+
 local function CreateRow(index)
     local row = CreateFrame("Frame", nil, scrollChild)
     row:SetWidth(720)
@@ -978,19 +1026,14 @@ local function CreateRow(index)
     row.delete:SetScript("OnClick", function()
         local r=this.caRow
         if r and r.alert then
+            local description = "this alert"
             if r.isChild then
-                table.remove(FortyOneSCombatAlertDB.alerts, r.recordIndex)
+                description = "this child alert"
             else
-                local parentId = r.alert.id
-                local i
-                for i = table.getn(FortyOneSCombatAlertDB.alerts), 1, -1 do
-                    local alert = FortyOneSCombatAlertDB.alerts[i]
-                    if alert.id == parentId or alert.parentId == parentId then
-                        table.remove(FortyOneSCombatAlertDB.alerts, i)
-                    end
-                end
+                description = "this alert and all of its child alerts"
             end
-            RefreshRows()
+            pendingDeleteAlertId = r.alert.id
+            StaticPopup_Show("FORTYONESCOMBATALERT_DELETE_ALERT", description)
         end
     end)
 
