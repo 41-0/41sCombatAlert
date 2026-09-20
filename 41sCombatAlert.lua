@@ -13,9 +13,10 @@
 
 FortyOneSCombatAlertDB = FortyOneSCombatAlertDB or {}
 FortyOneSCombatAlertDB.alerts = FortyOneSCombatAlertDB.alerts or {}
-FortyOneSCombatAlertCharacterDB = FortyOneSCombatAlertCharacterDB or {}
-FortyOneSCombatAlertCharacterDB.alerts =
-    FortyOneSCombatAlertCharacterDB.alerts or {}
+FortyOneSCombatAlertDB.characterAlerts =
+    FortyOneSCombatAlertDB.characterAlerts or {}
+local characterAlertDatabase = { alerts = {} }
+local currentCharacterStorage = { alerts = {} }
 
 local function CreateAlertId(database)
     database = database or FortyOneSCombatAlertDB
@@ -35,6 +36,15 @@ local SOUND_OPTIONS = {
     [7] = { name = "Custom File", customFile = true },
     [8] = { name = "MPQ Path", customMPQ = true }
 }
+
+-- Some 1.12-derived clients replace the SavedVariables table after addon Lua
+-- has loaded.  Recreate all required account fields at PLAYER_LOGIN as well.
+local function EnsureAccountDatabase()
+    FortyOneSCombatAlertDB = FortyOneSCombatAlertDB or {}
+    FortyOneSCombatAlertDB.alerts = FortyOneSCombatAlertDB.alerts or {}
+    FortyOneSCombatAlertDB.characterAlerts =
+        FortyOneSCombatAlertDB.characterAlerts or {}
+end
 
 local function EnsureAlertOptions(database)
     local i
@@ -88,6 +98,7 @@ local function EnsureAlertOptions(database)
 end
 
 local function EnsureDefaults()
+    EnsureAccountDatabase()
     if table.getn(FortyOneSCombatAlertDB.alerts) == 0 then
         table.insert(FortyOneSCombatAlertDB.alerts, {
             enabled = true,
@@ -133,7 +144,80 @@ local function EnsureDefaults()
 end
 
 local function EnsureCharacterDefaults()
-    EnsureAlertOptions(FortyOneSCombatAlertCharacterDB)
+    EnsureAlertOptions(characterAlertDatabase)
+end
+
+-- Keep character alerts inside the account SavedVariables file, keyed by
+-- character and realm.  This avoids depending on a separate per-character
+-- SavedVariables file while still keeping each character's alerts isolated.
+local function GetCurrentCharacterKey()
+    local characterName = UnitName("player") or "Unknown"
+    local realmName = GetRealmName() or "Unknown"
+    return realmName .. " - " .. characterName
+end
+
+local function BindCharacterAlertDatabase()
+    EnsureAccountDatabase()
+    local characterKey = GetCurrentCharacterKey()
+    local savedAlerts = FortyOneSCombatAlertDB.characterAlerts[characterKey]
+
+    if not savedAlerts then
+        savedAlerts = { alerts = {} }
+        FortyOneSCombatAlertDB.characterAlerts[characterKey] = savedAlerts
+    end
+
+    savedAlerts.alerts = savedAlerts.alerts or {}
+    currentCharacterStorage = savedAlerts
+
+    local parentKey = savedAlerts.shareParentKey
+    local parentDatabase = parentKey and
+        FortyOneSCombatAlertDB.characterAlerts[parentKey]
+    if parentDatabase and parentKey ~= characterKey and
+        not parentDatabase.shareParentKey then
+        characterAlertDatabase = parentDatabase
+    else
+        savedAlerts.shareParentKey = nil
+        characterAlertDatabase = savedAlerts
+    end
+end
+
+local function CopyAlertEntries(sourceDatabase, destinationDatabase)
+    if not sourceDatabase or not destinationDatabase then
+        return 0
+    end
+    local sourceAlerts = sourceDatabase.alerts or {}
+    local idMap = {}
+    local copiedAlerts = {}
+    local i
+
+    if sourceDatabase == destinationDatabase or table.getn(sourceAlerts) == 0 then
+        return 0
+    end
+
+    for i = 1, table.getn(sourceAlerts) do
+        local sourceAlert = sourceAlerts[i]
+        idMap[sourceAlert.id] = CreateAlertId(destinationDatabase)
+    end
+
+    for i = 1, table.getn(sourceAlerts) do
+        local sourceAlert = sourceAlerts[i]
+        local copiedAlert = {}
+        local key, value
+        for key, value in pairs(sourceAlert) do
+            copiedAlert[key] = value
+        end
+        copiedAlert.id = idMap[sourceAlert.id]
+        if sourceAlert.parentId then
+            copiedAlert.parentId = idMap[sourceAlert.parentId]
+        end
+        table.insert(copiedAlerts, copiedAlert)
+    end
+
+    for i = 1, table.getn(copiedAlerts) do
+        table.insert(destinationDatabase.alerts, copiedAlerts[i])
+    end
+    EnsureAlertOptions(destinationDatabase)
+    return table.getn(copiedAlerts)
 end
 
 -- Case-insensitive wildcard matcher.
@@ -494,7 +578,7 @@ eventFrame:SetScript("OnEvent", function()
     end
 
     ProcessAlertList(FortyOneSCombatAlertDB.alerts, message, isSpellcastEvent)
-    ProcessAlertList(FortyOneSCombatAlertCharacterDB.alerts, message,
+    ProcessAlertList(characterAlertDatabase.alerts, message,
         isSpellcastEvent)
 end)
 
@@ -560,10 +644,141 @@ local pageLabel
 local previousPage
 local nextPage
 local RefreshRows
+local characterSourceDropdown
+local copyCharacterButton
+local shareCharacterButton
+local selectedCharacterSourceKey
+local UpdateCharacterTransferControls
+local SelectAlertTab
 
 local function GetActiveAlerts()
     return activeAlertDatabase.alerts
 end
+
+local function GetCharacterSourceKeys()
+    EnsureAccountDatabase()
+    local keys = {}
+    local key
+    for key, value in pairs(FortyOneSCombatAlertDB.characterAlerts) do
+        if not value.shareParentKey then
+            table.insert(keys, key)
+        end
+    end
+    table.sort(keys)
+    return keys
+end
+
+local function SetCharacterSource(key)
+    selectedCharacterSourceKey = key
+    if characterSourceDropdown then
+        UIDropDownMenu_SetText(key or "No character entries",
+            characterSourceDropdown)
+    end
+    if UpdateCharacterTransferControls then
+        UpdateCharacterTransferControls()
+    end
+end
+
+characterSourceDropdown = CreateFrame("Frame",
+    "FortyOneSCombatAlertCharacterDropdown", config, "UIDropDownMenuTemplate")
+characterSourceDropdown:SetPoint("TOPLEFT", config, "TOPLEFT", 18, -38)
+UIDropDownMenu_SetWidth(220, characterSourceDropdown)
+UIDropDownMenu_Initialize(characterSourceDropdown, function()
+    local keys = GetCharacterSourceKeys()
+    local i
+    for i = 1, table.getn(keys) do
+        local key = keys[i]
+        local menuInfo = UIDropDownMenu_CreateInfo()
+        menuInfo.text = key
+        menuInfo.func = function()
+            SetCharacterSource(key)
+        end
+        UIDropDownMenu_AddButton(menuInfo)
+    end
+end)
+
+copyCharacterButton = CreateFrame("Button", nil, config, "UIPanelButtonTemplate")
+copyCharacterButton:SetWidth(80)
+copyCharacterButton:SetHeight(22)
+copyCharacterButton:SetPoint("LEFT", characterSourceDropdown, "RIGHT", -10, 2)
+copyCharacterButton:SetText("Copy")
+
+shareCharacterButton = CreateFrame("Button", nil, config, "UIPanelButtonTemplate")
+shareCharacterButton:SetWidth(80)
+shareCharacterButton:SetHeight(22)
+shareCharacterButton:SetPoint("LEFT", copyCharacterButton, "RIGHT", 5, 0)
+shareCharacterButton:SetText("Share")
+
+UpdateCharacterTransferControls = function()
+    local sourceDatabase
+    local currentCharacterKey = GetCurrentCharacterKey()
+
+    if currentCharacterStorage.shareParentKey then
+        shareCharacterButton:SetText("Stop Share")
+        shareCharacterButton:Enable()
+        copyCharacterButton:Disable()
+        return
+    end
+
+    shareCharacterButton:SetText("Share")
+    if selectedCharacterSourceKey then
+        sourceDatabase =
+            FortyOneSCombatAlertDB.characterAlerts[selectedCharacterSourceKey]
+    end
+
+    if sourceDatabase and selectedCharacterSourceKey ~= currentCharacterKey and
+        not currentCharacterStorage.shareParentKey then
+        copyCharacterButton:Enable()
+    else
+        copyCharacterButton:Disable()
+    end
+
+    if sourceDatabase and selectedCharacterSourceKey ~= currentCharacterKey and
+        currentCharacterStorage.shareParentKey ~= selectedCharacterSourceKey then
+        shareCharacterButton:Enable()
+    else
+        shareCharacterButton:Disable()
+    end
+end
+
+copyCharacterButton:SetScript("OnClick", function()
+    local sourceDatabase =
+        FortyOneSCombatAlertDB.characterAlerts[selectedCharacterSourceKey]
+    local copied = CopyAlertEntries(sourceDatabase,
+        currentCharacterStorage)
+    if copied > 0 then
+        DEFAULT_CHAT_FRAME:AddMessage("|cffff333341sCombatAlert|r copied "..
+            copied.." alert(s) to this character.")
+        SelectAlertTab(characterAlertDatabase)
+    end
+    UpdateCharacterTransferControls()
+end)
+
+shareCharacterButton:SetScript("OnClick", function()
+    if currentCharacterStorage.shareParentKey then
+        currentCharacterStorage.shareParentKey = nil
+        characterAlertDatabase = currentCharacterStorage
+        SetCharacterSource(GetCurrentCharacterKey())
+        DEFAULT_CHAT_FRAME:AddMessage("|cffff333341sCombatAlert|r stopped "..
+            "sharing alerts.")
+        SelectAlertTab(characterAlertDatabase)
+        UpdateCharacterTransferControls()
+        return
+    end
+
+    local sourceDatabase =
+        FortyOneSCombatAlertDB.characterAlerts[selectedCharacterSourceKey]
+    local currentCharacterKey = GetCurrentCharacterKey()
+    if sourceDatabase and selectedCharacterSourceKey ~= currentCharacterKey then
+        currentCharacterStorage.shareParentKey = selectedCharacterSourceKey
+        characterAlertDatabase = sourceDatabase
+        SetCharacterSource(selectedCharacterSourceKey)
+        DEFAULT_CHAT_FRAME:AddMessage("|cffff333341sCombatAlert|r now shares "..
+            "alerts with "..selectedCharacterSourceKey..".")
+        SelectAlertTab(characterAlertDatabase)
+    end
+    UpdateCharacterTransferControls()
+end)
 
 accountTab = CreateFrame("Button", nil, config, "UIPanelButtonTemplate")
 accountTab:SetWidth(85)
@@ -577,24 +792,35 @@ characterTab:SetHeight(28)
 characterTab:SetPoint("LEFT", accountTab, "RIGHT", 5, 0)
 characterTab:SetText("Character")
 
-local function SelectAlertTab(database)
+SelectAlertTab = function(database)
     activeAlertDatabase = database
     currentPage = 1
     if activeAlertDatabase == FortyOneSCombatAlertDB then
         accountTab:Disable()
         characterTab:Enable()
+        info:Show()
+        characterSourceDropdown:Hide()
+        copyCharacterButton:Hide()
+        shareCharacterButton:Hide()
     else
         accountTab:Enable()
         characterTab:Disable()
+        info:Hide()
+        characterSourceDropdown:Show()
+        copyCharacterButton:Show()
+        shareCharacterButton:Show()
     end
     RefreshRows()
+    if UpdateCharacterTransferControls then
+        UpdateCharacterTransferControls()
+    end
 end
 
 accountTab:SetScript("OnClick", function()
     SelectAlertTab(FortyOneSCombatAlertDB)
 end)
 characterTab:SetScript("OnClick", function()
-    SelectAlertTab(FortyOneSCombatAlertCharacterDB)
+    SelectAlertTab(characterAlertDatabase)
 end)
 accountTab:Disable()
 
@@ -1249,7 +1475,7 @@ nextPage:SetScript("OnClick",function()
 end)
 
 local function ShowConfig()
-    RefreshRows()
+    SelectAlertTab(activeAlertDatabase)
     config:Show()
 end
 
@@ -1341,8 +1567,11 @@ local startup=CreateFrame("Frame","FortyOneSCombatAlertStartupFrame",UIParent)
 startup:RegisterEvent("PLAYER_LOGIN")
 startup:SetScript("OnEvent",function()
     EnsureDefaults()
+    BindCharacterAlertDatabase()
     EnsureCharacterDefaults()
+    SetCharacterSource(currentCharacterStorage.shareParentKey or
+        GetCurrentCharacterKey())
     UpdateMinimapButtonPosition()
-    RefreshRows()
+    SelectAlertTab(FortyOneSCombatAlertDB)
     DEFAULT_CHAT_FRAME:AddMessage("|cffff333341sCombatAlert|r loaded. Type |cff66ccff/foca|r.")
 end)

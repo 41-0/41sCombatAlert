@@ -1,175 +1,156 @@
-# 41's Combat Alert - World of Warcraft 1.12.1 addon
+# 41's Combat Alert
 
-Alerts and/or Reports combat log events as you specify.
+41's Combat Alert is a World of Warcraft 1.12.1 addon that shows an on-screen
+alert, plays a sound, and/or reports to chat when a combat-log message matches
+one of your patterns.
 
-## Install
+## Installation
 
 Copy the 41sCombatAlert folder into:
 
-Interface\AddOns\
+    Interface\AddOns\
 
-Then launch WoW
+Then restart WoW or reload the UI.
 
----
+## Opening the configuration window
 
-## Commands
+Use:
 
-/foca
-    Open the configuration window.
+    /foca
 
 You can also click the minimap icon to open or close the configuration window.
 
----
+## Patterns
 
-## Pattern
-
-\* is the only wildcard. It means zero or more arbitrary characters.
+* is the only wildcard. It matches zero or more arbitrary characters.
 Matching is case-insensitive.
 
-currentpet will be replaced by your current pet's name. If there is no pet,
-a pattern containing currentpet will not match.
+currentpet is replaced with your current pet's name. A pattern containing
+currentpet cannot match when you have no pet.
 
 Examples:
 
     currentpet*torment*resisted*
     your taunt was resisted*
-  
+
 ### Exceptions
 
-Use the **Except** field to prevent an alert when the combat-log message
-contains an exception entry. Separate multiple entries with `|`. Whitespace around `|` is
-ignored.
+Use the **Except** field to stop an alert when the message contains an
+exception. Separate multiple exceptions with |; spaces around | are ignored.
+Exceptions are plain text: * has no wildcard meaning there.
 
 Example:
 
     Pattern:  you gain*
     Except:   thorns|rejuvenation
 
-plain text: `*` is not a wildcard.
+### Spellcast-start patterns
 
-### Your spellcast start
+You can also react to the start of your own casts:
 
-You can also trigger an alert when you begin casting a spell. These are addon
-events, not combat-log lines, and only apply to your own casts:
+    SPELLCAST_START Fireball
+    SPELLCAST_START *
+    SPELLCAST_CHANNEL_START Mind Flay
 
-```
-SPELLCAST_START Fireball
-SPELLCAST_START *
-SPELLCAST_CHANNEL_START Mind Flay
-```
+SPELLCAST_START is sent for spells with a cast time, not instant spells.
+SPELLCAST_CHANNEL_START is sent when a channel begins.
 
-`SPELLCAST_START` is sent for casts with a cast time; instant spells do not
-send it. `SPELLCAST_CHANNEL_START` is sent when you begin a channelled spell.
-Spellcast patterns must begin with one of these event names so that normal
-combat-log patterns do not trigger from your casts.
+On some Turtle WoW-based clients, a channel-start event supplies the generic
+text Channeling rather than the spell name. In that case, use:
 
-On standard 1.12.1 clients, the channel start event normally includes the
-spell name. Turtle WoW-based clients may instead provide the generic text
-`Channeling`, so `SPELLCAST_CHANNEL_START *` is the reliable pattern for
-channel starts on those clients.
+    SPELLCAST_CHANNEL_START *
 
-Each alert has:
-    Enable
-    Text
-    Sound
-    Report to: Party, Raid, Say, Yell
+## Alert actions
 
-More than one report channel can be selected. The Text field is used as both
-the on-screen alert and the chat-report message. Party and Raid messages are
-sent only while you are in a party or raid respectively.
+Each alert can independently use the following actions:
 
-Enter the name of a custom channel in the **Ch:** field to send the same
-Text there as well. You must have joined that channel.
+- **Enable** — Turns the alert on or off.
+- **Text** — Shows the Text field on screen.
+- **Sound** — Plays the selected sound.
+- **Report** — Sends the Text field to Party, Raid, Say, Yell, Guild, and/or a
+  joined custom channel.
 
-The alert editor displays four alerts per page. Use Previous and Next to move
-between pages.
+More than one report destination may be selected. Party and Raid reports are
+sent only when you are in a party or raid. Enter the name of a joined channel
+in the **Ch:** field to report there too.
 
-### Account and character alerts
+Each alert has a **Test** button that tests its enabled Text, Sound, and Report
+actions. The editor shows four alerts per page; use **Previous** and **Next**
+to change pages.
 
-Use the **Account** tab for alerts shared by every character on the account.
-Use the **Character** tab for alerts saved only for the current character.
-Alerts in both tabs are active while playing that character.
+## Text tokens
 
----
+These tokens work in both on-screen Text and chat reports:
 
-## Text
+- %t — Your current target's name
+- %tt — Your target's target's name
+- %p — Your player name
+- %pet — Your current pet's name
 
-When **Text** is enabled, the text entered in the **Text** field is displayed
-on the screen when the alert is triggered.
+## Sounds
 
-The same text is also used as the chat-report message when one or more
-Report to channels are selected.
+Choose one source in the **Sound** dropdown:
 
-The following message tokens work in both on-screen alerts and chat reports:
+- **Sound A–F** use the included SoundA.wav through SoundF.wav files.
+- **Custom File** uses a WAV file under the addon's Sounds folder. Enter its
+  path in the **File** field, for example MySound.wav or Boss\MySound.wav.
+- **MPQ Path** uses a WAV path inside the WoW client archives. Enter it in the
+  **MPQ** field, for example:
 
-- `%t` — Your current target's name
-- `%tt` — Your target's target's name
-- `%p` — Your player name
-- `%pet` — Your current pet's name
+      Sound\Interface\RaidWarning.wav
 
----
+The MPQ field is not a Windows file path. You can browse known WoW sound paths
+at [wow-sounds](https://github.com/fondlez/wow-sounds).
 
-## Sound
+You may replace the included Sound A–F files with your own WAV files.
 
-When **Sound** is enabled, a sound is played when the alert is triggered.
+## Sequences and random groups
 
-### Choose one sound source from the Sound dropdown:
+Press **Sequence** or **Random** on a parent alert to add a child alert. A child
+inherits its parent's Pattern, which cannot be edited, but it can have its own
+Text, Sound, and Report settings.
 
-#### **Included Files**
+The parent is included as the first possible reaction:
 
-- **Sound A** — Uses the included `SoundA.wav` file.
-- **Sound B** — Uses the included `SoundB.wav` file.
-- **Sound C** — Uses the included `SoundC.wav` file.
-- **Sound D** — Uses the included `SoundD.wav` file.
-- **Sound E** — Uses the included `SoundE.wav` file.
-- **Sound F** — Uses the included `SoundF.wav` file.
+- **Sequence** plays the parent, then enabled child reactions in order, and
+  repeats from the beginning.
+- **Random** chooses randomly between the parent and enabled child reactions.
 
-#### **Custom File**
+## Account, character, and shared-character alerts
 
-Put your WAV file in the addon's `Sounds` folder and enter its filename in the **File** field.
-For example:
+Both Account and Character alerts are active for the current character.
 
-  `MySound.wav`
+- **Account** alerts are used by every character on the account.
+- **Character** alerts normally belong only to the current character.
 
-#### **MPQ Path**
+Character data is stored inside the account SavedVariables data, but is kept
+separate by realm and character name.
 
-Uses the WAV file path entered in the **MPQ** field.
+### Copy
 
-The MPQ field is for an audio path inside the WoW client archives,
-not a Windows file path. For example:
+On the **Character** tab, select an independent character in the dropdown and
+press **Copy** to copy all of that character's alerts to the current
+character. The original alerts remain unchanged.
 
-```
-Sound\Interface\RaidWarning.wav
-```
+### Share
 
-You can look for sound file path [>>>HERE<<<](https://github.com/fondlez/wow-sounds).
+On the **Character** tab, select an independent character and press **Share**
+to make that selected character the parent of the current character.
 
----
+The current character becomes a child and directly uses the parent's Character
+alerts. Changes made on the parent—including adding, editing, and deleting
+alerts—are automatically used by every child of that parent. A child is removed
+from the dropdown because it is no longer an independent alert source.
 
-## Sound sequences and random groups
-
-Press **Sequence** or **Random** on a parent alert to add a child alert.
-Child alerts inherit the parent's Pattern, which cannot be edited, while their
-Text, Sound, and Report to settings can be configured independently.
-
-The parent alert is included as the first reaction:
-
-- **Sequence** — Uses the parent reaction, then each enabled child reaction in
-  order, and repeats from the beginning.
-- **Random** — Randomly selects the parent reaction or one enabled child
-  reaction each time the pattern matches.
-
----
+While the current character is a child, **Share** changes to **Stop Share**.
+Press it to remove the parent link and return to that character's own saved
+alerts. Those original alerts are preserved while sharing is active.
 
 ## Starter examples
 
-The Taunt-resisted example is enabled by default, has Text and Sound enabled,
-and reports to Party. Existing alerts and SavedVariables are kept when
-updating does not import settings from older CombatAlert packages.
+The Taunt-resisted example is enabled by default, uses Text and Sound, and
+reports to Party.
 
-
-
-<BR><BR>
----
+## License
 
 This project is licensed under the [MIT License](LICENSE).
