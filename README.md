@@ -84,6 +84,12 @@ Text there as well. You must have joined that channel.
 The alert editor displays four alerts per page. Use Previous and Next to move
 between pages.
 
+### Account and character alerts
+
+Use the **Account** tab for alerts shared by every character on the account.
+Use the **Character** tab for alerts saved only for the current character.
+Alerts in both tabs are active while playing that character.
+
 ---
 
 ## Text

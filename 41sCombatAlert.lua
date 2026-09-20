@@ -13,11 +13,14 @@
 
 FortyOneSCombatAlertDB = FortyOneSCombatAlertDB or {}
 FortyOneSCombatAlertDB.alerts = FortyOneSCombatAlertDB.alerts or {}
+FortyOneSCombatAlertCharacterDB = FortyOneSCombatAlertCharacterDB or {}
+FortyOneSCombatAlertCharacterDB.alerts =
+    FortyOneSCombatAlertCharacterDB.alerts or {}
 
-local function CreateAlertId()
-    FortyOneSCombatAlertDB.nextAlertId =
-        (FortyOneSCombatAlertDB.nextAlertId or 0) + 1
-    return FortyOneSCombatAlertDB.nextAlertId
+local function CreateAlertId(database)
+    database = database or FortyOneSCombatAlertDB
+    database.nextAlertId = (database.nextAlertId or 0) + 1
+    return database.nextAlertId
 end
 
 local ALERT_TIME = 3
@@ -32,6 +35,57 @@ local SOUND_OPTIONS = {
     [7] = { name = "Custom File", customFile = true },
     [8] = { name = "MPQ Path", customMPQ = true }
 }
+
+local function EnsureAlertOptions(database)
+    local i
+    local nextAlertId = database.nextAlertId or 0
+    for i = 1, table.getn(database.alerts) do
+        local alert = database.alerts[i]
+        if alert.id then
+            if alert.id > nextAlertId then nextAlertId = alert.id end
+        else
+            nextAlertId = nextAlertId + 1
+            alert.id = nextAlertId
+        end
+        if alert.chatParty == nil then alert.chatParty = false end
+        if alert.chatRaid == nil then alert.chatRaid = false end
+        if alert.chatSay == nil then alert.chatSay = false end
+        if alert.chatYell == nil then alert.chatYell = false end
+        if alert.chatGuild == nil then alert.chatGuild = false end
+        if alert.chatCustomChannel == nil then alert.chatCustomChannel = "" end
+        if alert.exceptions == nil then alert.exceptions = "" end
+        if alert.soundChoice == nil then alert.soundChoice = 1 end
+        if alert.customSoundPath == nil then
+            alert.customSoundPath = "Sound\\Interface\\RaidWarning.wav"
+        end
+        if alert.customFileName == nil then alert.customFileName = "" end
+        if alert.soundChoiceVersion == nil or alert.soundChoiceVersion < 2 then
+            if alert.soundChoice == 3 then alert.soundChoice = 7 end
+            alert.soundChoiceVersion = 2
+        end
+        if alert.soundChoiceVersion < 3 then
+            if alert.soundChoice == 3 then
+                alert.customSoundPath = "Sound\\Interface\\RaidWarning.wav"
+                alert.soundChoice = 7
+            elseif alert.soundChoice == 4 then
+                alert.customSoundPath = "Sound\\Interface\\MapPing.wav"
+                alert.soundChoice = 7
+            elseif alert.soundChoice == 5 then
+                alert.customSoundPath = "Sound\\Doodad\\BellTollAlliance.wav"
+                alert.soundChoice = 7
+            elseif alert.soundChoice == 6 then
+                alert.customSoundPath = "Sound\\Doodad\\BellTollHorde.wav"
+                alert.soundChoice = 7
+            end
+            alert.soundChoiceVersion = 3
+        end
+        if alert.soundChoiceVersion < 4 then
+            if alert.soundChoice == 7 then alert.soundChoice = 8 end
+            alert.soundChoiceVersion = 4
+        end
+    end
+    database.nextAlertId = nextAlertId
+end
 
 local function EnsureDefaults()
     if table.getn(FortyOneSCombatAlertDB.alerts) == 0 then
@@ -75,60 +129,11 @@ local function EnsureDefaults()
         FortyOneSCombatAlertDB.tauntExampleAdded = true
     end
 
-    -- Add new options to alerts saved by older versions.
-    local i
-    local nextAlertId = FortyOneSCombatAlertDB.nextAlertId or 0
-    for i = 1, table.getn(FortyOneSCombatAlertDB.alerts) do
-        local alert = FortyOneSCombatAlertDB.alerts[i]
-        if alert.id then
-            if alert.id > nextAlertId then nextAlertId = alert.id end
-        else
-            nextAlertId = nextAlertId + 1
-            alert.id = nextAlertId
-        end
-        if alert.chatParty == nil then alert.chatParty = false end
-        if alert.chatRaid == nil then alert.chatRaid = false end
-        if alert.chatSay == nil then alert.chatSay = false end
-        if alert.chatYell == nil then alert.chatYell = false end
-        if alert.chatGuild == nil then alert.chatGuild = false end
-        if alert.chatCustomChannel == nil then alert.chatCustomChannel = "" end
-        if alert.exceptions == nil then alert.exceptions = "" end
-        if alert.soundChoice == nil then alert.soundChoice = 1 end
-        if alert.customSoundPath == nil then
-            alert.customSoundPath = "Sound\\Interface\\RaidWarning.wav"
-        end
-        if alert.customFileName == nil then alert.customFileName = "" end
-        -- Version 1 used choice 3 for the Custom path.
-        if alert.soundChoiceVersion == nil or alert.soundChoiceVersion < 2 then
-            if alert.soundChoice == 3 then alert.soundChoice = 7 end
-            alert.soundChoiceVersion = 2
-        end
-        -- Version 2 used choices 3 to 6 for built-in client sounds.
-        -- Preserve those choices as a Custom MPQ Path before these IDs are
-        -- reassigned to the included Sound C to Sound F files.
-        if alert.soundChoiceVersion < 3 then
-            if alert.soundChoice == 3 then
-                alert.customSoundPath = "Sound\\Interface\\RaidWarning.wav"
-                alert.soundChoice = 7
-            elseif alert.soundChoice == 4 then
-                alert.customSoundPath = "Sound\\Interface\\MapPing.wav"
-                alert.soundChoice = 7
-            elseif alert.soundChoice == 5 then
-                alert.customSoundPath = "Sound\\Doodad\\BellTollAlliance.wav"
-                alert.soundChoice = 7
-            elseif alert.soundChoice == 6 then
-                alert.customSoundPath = "Sound\\Doodad\\BellTollHorde.wav"
-                alert.soundChoice = 7
-            end
-            alert.soundChoiceVersion = 3
-        end
-        -- Version 3 used choice 7 for the Custom MPQ Path.
-        if alert.soundChoiceVersion < 4 then
-            if alert.soundChoice == 7 then alert.soundChoice = 8 end
-            alert.soundChoiceVersion = 4
-        end
-    end
-    FortyOneSCombatAlertDB.nextAlertId = nextAlertId
+    EnsureAlertOptions(FortyOneSCombatAlertDB)
+end
+
+local function EnsureCharacterDefaults()
+    EnsureAlertOptions(FortyOneSCombatAlertCharacterDB)
 end
 
 -- Case-insensitive wildcard matcher.
@@ -353,11 +358,11 @@ local function TriggerAlert(alert)
     SendChatReport(alert)
 end
 
-local function GetChildAlerts(parent)
+local function GetChildAlerts(parent, alerts)
     local children = {}
     local i
-    for i = 1, table.getn(FortyOneSCombatAlertDB.alerts) do
-        local alert = FortyOneSCombatAlertDB.alerts[i]
+    for i = 1, table.getn(alerts) do
+        local alert = alerts[i]
         if alert.parentId == parent.id and alert.enabled then
             table.insert(children, alert)
         end
@@ -365,8 +370,8 @@ local function GetChildAlerts(parent)
     return children
 end
 
-local function SelectGroupReaction(parent)
-    local children = GetChildAlerts(parent)
+local function SelectGroupReaction(parent, alerts)
+    local children = GetChildAlerts(parent, alerts)
     if not parent.playMode or table.getn(children) == 0 then
         return parent
     end
@@ -386,6 +391,18 @@ local function SelectGroupReaction(parent)
         parent.sequencePosition = 1
     end
     return choices[parent.sequencePosition]
+end
+
+local function ProcessAlertList(alerts, message, isSpellcastEvent)
+    local i
+    for i = 1, table.getn(alerts) do
+        local alert = alerts[i]
+        if not alert.parentId
+            and (not isSpellcastEvent or IsSpellcastPattern(alert.pattern))
+            and Matches(alert, message) then
+            TriggerAlert(SelectGroupReaction(alert, alerts))
+        end
+    end
 end
 
 -- ============================================================
@@ -476,16 +493,9 @@ eventFrame:SetScript("OnEvent", function()
         return
     end
 
-    local i
-    for i = 1, table.getn(FortyOneSCombatAlertDB.alerts) do
-        local alert = FortyOneSCombatAlertDB.alerts[i]
-
-        if not alert.parentId
-            and (not isSpellcastEvent or IsSpellcastPattern(alert.pattern))
-            and Matches(alert, message) then
-            TriggerAlert(SelectGroupReaction(alert))
-        end
-    end
+    ProcessAlertList(FortyOneSCombatAlertDB.alerts, message, isSpellcastEvent)
+    ProcessAlertList(FortyOneSCombatAlertCharacterDB.alerts, message,
+        isSpellcastEvent)
 end)
 
 -- ============================================================
@@ -522,7 +532,7 @@ title:SetText("41's Combat Alert")
 
 local info = config:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 info:SetPoint("TOPLEFT", config, "TOPLEFT", 25, -48)
-info:SetWidth(750)
+info:SetWidth(600)
 info:SetJustifyH("LEFT")
 info:SetText("Use * as a wildcard. Matching is case-insensitive. currentpet will be replaced by your current pet's name.")
 
@@ -543,10 +553,50 @@ local rows = {}
 local rowHeight = 122
 local ROWS_PER_PAGE = 4
 local currentPage = 1
+local activeAlertDatabase = FortyOneSCombatAlertDB
+local accountTab
+local characterTab
 local pageLabel
 local previousPage
 local nextPage
 local RefreshRows
+
+local function GetActiveAlerts()
+    return activeAlertDatabase.alerts
+end
+
+accountTab = CreateFrame("Button", nil, config, "UIPanelButtonTemplate")
+accountTab:SetWidth(85)
+accountTab:SetHeight(28)
+accountTab:SetPoint("BOTTOMRIGHT", config, "BOTTOMRIGHT", -139, 18)
+accountTab:SetText("Account")
+
+characterTab = CreateFrame("Button", nil, config, "UIPanelButtonTemplate")
+characterTab:SetWidth(105)
+characterTab:SetHeight(28)
+characterTab:SetPoint("LEFT", accountTab, "RIGHT", 5, 0)
+characterTab:SetText("Character")
+
+local function SelectAlertTab(database)
+    activeAlertDatabase = database
+    currentPage = 1
+    if activeAlertDatabase == FortyOneSCombatAlertDB then
+        accountTab:Disable()
+        characterTab:Enable()
+    else
+        accountTab:Enable()
+        characterTab:Disable()
+    end
+    RefreshRows()
+end
+
+accountTab:SetScript("OnClick", function()
+    SelectAlertTab(FortyOneSCombatAlertDB)
+end)
+characterTab:SetScript("OnClick", function()
+    SelectAlertTab(FortyOneSCombatAlertCharacterDB)
+end)
+accountTab:Disable()
 
 -- A self-contained edit box skin.  InputBoxTemplate can render incorrectly
 -- in the 1.12 client when several unnamed edit boxes share one parent.
@@ -598,8 +648,9 @@ local function BuildDisplayEntries()
     local i
     local j
 
-    for i = 1, table.getn(FortyOneSCombatAlertDB.alerts) do
-        local parent = FortyOneSCombatAlertDB.alerts[i]
+    local alerts = GetActiveAlerts()
+    for i = 1, table.getn(alerts) do
+        local parent = alerts[i]
         if not parent.parentId then
             parentNumber = parentNumber + 1
             table.insert(entries, {
@@ -610,8 +661,8 @@ local function BuildDisplayEntries()
             })
 
             local childNumber = 0
-            for j = 1, table.getn(FortyOneSCombatAlertDB.alerts) do
-                local child = FortyOneSCombatAlertDB.alerts[j]
+            for j = 1, table.getn(alerts) do
+                local child = alerts[j]
                 if child.parentId == parent.id then
                     childNumber = childNumber + 1
                     table.insert(entries, {
@@ -634,7 +685,7 @@ local function AddChildAlert(parent, mode)
     parent.sequencePosition = 0
 
     local child = {
-        id = CreateAlertId(),
+        id = CreateAlertId(activeAlertDatabase),
         parentId = parent.id,
         exceptions = "",
         chatGuild = false,
@@ -652,7 +703,7 @@ local function AddChildAlert(parent, mode)
         chatYell = false,
         text = "ALERT!"
     }
-    table.insert(FortyOneSCombatAlertDB.alerts, child)
+    table.insert(GetActiveAlerts(), child)
 
     local entries = BuildDisplayEntries()
     local i
@@ -672,9 +723,10 @@ local function DeleteAlertById(alertId)
     local targetIndex
     local i
 
-    for i = 1, table.getn(FortyOneSCombatAlertDB.alerts) do
-        if FortyOneSCombatAlertDB.alerts[i].id == alertId then
-            target = FortyOneSCombatAlertDB.alerts[i]
+    local alerts = GetActiveAlerts()
+    for i = 1, table.getn(alerts) do
+        if alerts[i].id == alertId then
+            target = alerts[i]
             targetIndex = i
             break
         end
@@ -683,12 +735,12 @@ local function DeleteAlertById(alertId)
     if not target then return end
 
     if target.parentId then
-        table.remove(FortyOneSCombatAlertDB.alerts, targetIndex)
+        table.remove(alerts, targetIndex)
     else
-        for i = table.getn(FortyOneSCombatAlertDB.alerts), 1, -1 do
-            local alert = FortyOneSCombatAlertDB.alerts[i]
+        for i = table.getn(alerts), 1, -1 do
+            local alert = alerts[i]
             if alert.id == alertId or alert.parentId == alertId then
-                table.remove(FortyOneSCombatAlertDB.alerts, i)
+                table.remove(alerts, i)
             end
         end
     end
@@ -1154,8 +1206,8 @@ add:SetHeight(28)
 add:SetPoint("BOTTOMLEFT",config,"BOTTOMLEFT",25,18)
 add:SetText("Add Alert")
 add:SetScript("OnClick",function()
-    table.insert(FortyOneSCombatAlertDB.alerts,{
-        id=CreateAlertId(), enabled=true, pattern="", exceptions="", chatGuild=false, chatCustomChannel="", textEnabled=true,
+    table.insert(GetActiveAlerts(),{
+        id=CreateAlertId(activeAlertDatabase), enabled=true, pattern="", exceptions="", chatGuild=false, chatCustomChannel="", textEnabled=true,
         soundEnabled=true, soundChoice=1, soundChoiceVersion=4,
         customFileName="",
         customSoundPath="Sound\\Interface\\RaidWarning.wav",
@@ -1189,7 +1241,7 @@ nextPage:SetHeight(28)
 nextPage:SetPoint("LEFT",pageLabel,"RIGHT",5,0)
 nextPage:SetText("Next")
 nextPage:SetScript("OnClick",function()
-    local pageCount=math.max(1,math.ceil(table.getn(FortyOneSCombatAlertDB.alerts)/ROWS_PER_PAGE))
+    local pageCount=math.max(1,math.ceil(table.getn(BuildDisplayEntries())/ROWS_PER_PAGE))
     if currentPage<pageCount then
         currentPage=currentPage+1
         RefreshRows()
@@ -1289,6 +1341,7 @@ local startup=CreateFrame("Frame","FortyOneSCombatAlertStartupFrame",UIParent)
 startup:RegisterEvent("PLAYER_LOGIN")
 startup:SetScript("OnEvent",function()
     EnsureDefaults()
+    EnsureCharacterDefaults()
     UpdateMinimapButtonPosition()
     RefreshRows()
     DEFAULT_CHAT_FRAME:AddMessage("|cffff333341sCombatAlert|r loaded. Type |cff66ccff/foca|r.")
