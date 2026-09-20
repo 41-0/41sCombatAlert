@@ -76,7 +76,9 @@ in the **Ch:** field to report there too.
 
 Each alert has a **Test** button that tests its enabled Text, Sound, and Report
 actions. The editor shows four alerts per page; use **Previous** and **Next**
-to change pages.
+to change pages. Use the up and down buttons on the left side of an alert to
+change its order. Parent alerts move as groups with their children; child
+alerts move within their own parent group.
 
 ## Text tokens
 

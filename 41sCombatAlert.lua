@@ -44,6 +44,7 @@ local function EnsureAccountDatabase()
     FortyOneSCombatAlertDB.alerts = FortyOneSCombatAlertDB.alerts or {}
     FortyOneSCombatAlertDB.characterAlerts =
         FortyOneSCombatAlertDB.characterAlerts or {}
+    FortyOneSCombatAlertDB.uiState = FortyOneSCombatAlertDB.uiState or {}
 end
 
 local function EnsureAlertOptions(database)
@@ -57,6 +58,7 @@ local function EnsureAlertOptions(database)
             nextAlertId = nextAlertId + 1
             alert.id = nextAlertId
         end
+        if alert.displayOrder == nil then alert.displayOrder = i end
         if alert.chatParty == nil then alert.chatParty = false end
         if alert.chatRaid == nil then alert.chatRaid = false end
         if alert.chatSay == nil then alert.chatSay = false end
@@ -655,6 +657,27 @@ local function GetActiveAlerts()
     return activeAlertDatabase.alerts
 end
 
+local function GetSavedPage(database)
+    EnsureAccountDatabase()
+    local uiState = FortyOneSCombatAlertDB.uiState
+    if database == FortyOneSCombatAlertDB then
+        return uiState.accountPage or 1
+    end
+    return uiState.characterPage or 1
+end
+
+local function SaveCurrentView()
+    EnsureAccountDatabase()
+    local uiState = FortyOneSCombatAlertDB.uiState
+    if activeAlertDatabase == FortyOneSCombatAlertDB then
+        uiState.activeTab = "account"
+        uiState.accountPage = currentPage
+    else
+        uiState.activeTab = "character"
+        uiState.characterPage = currentPage
+    end
+end
+
 local function GetCharacterSourceKeys()
     EnsureAccountDatabase()
     local keys = {}
@@ -793,8 +816,9 @@ characterTab:SetPoint("LEFT", accountTab, "RIGHT", 5, 0)
 characterTab:SetText("Character")
 
 SelectAlertTab = function(database)
+    SaveCurrentView()
     activeAlertDatabase = database
-    currentPage = 1
+    currentPage = GetSavedPage(database)
     if activeAlertDatabase == FortyOneSCombatAlertDB then
         accountTab:Disable()
         characterTab:Enable()
@@ -870,6 +894,7 @@ end
 
 local function BuildDisplayEntries()
     local entries = {}
+    local parents = {}
     local parentNumber = 0
     local i
     local j
@@ -878,32 +903,84 @@ local function BuildDisplayEntries()
     for i = 1, table.getn(alerts) do
         local parent = alerts[i]
         if not parent.parentId then
+            table.insert(parents, { alert = parent, recordIndex = i })
+        end
+    end
+    table.sort(parents, function(left, right)
+        return (left.alert.displayOrder or left.recordIndex) <
+            (right.alert.displayOrder or right.recordIndex)
+    end)
+
+    for i = 1, table.getn(parents) do
+        local parentEntry = parents[i]
+        local parent = parentEntry.alert
             parentNumber = parentNumber + 1
             table.insert(entries, {
                 alert = parent,
-                recordIndex = i,
+                recordIndex = parentEntry.recordIndex,
                 isChild = false,
                 label = tostring(parentNumber)
             })
 
-            local childNumber = 0
+            local children = {}
             for j = 1, table.getn(alerts) do
                 local child = alerts[j]
                 if child.parentId == parent.id then
+                    table.insert(children, { alert = child, recordIndex = j })
+            end
+        end
+        table.sort(children, function(left, right)
+            return (left.alert.displayOrder or left.recordIndex) <
+                (right.alert.displayOrder or right.recordIndex)
+        end)
+
+        local childNumber = 0
+        for j = 1, table.getn(children) do
+            local childEntry = children[j]
+            local child = childEntry.alert
                     childNumber = childNumber + 1
                     table.insert(entries, {
                         alert = child,
-                        recordIndex = j,
+                        recordIndex = childEntry.recordIndex,
                         parent = parent,
                         isChild = true,
                         label = tostring(parentNumber).."."..childNumber
                     })
                 end
             end
+
+    return entries
+end
+
+local function MoveAlert(alert, isChild, parent, direction)
+    local candidates = {}
+    local alerts = GetActiveAlerts()
+    local i
+
+    for i = 1, table.getn(alerts) do
+        local candidate = alerts[i]
+        if (isChild and parent and candidate.parentId == parent.id) or
+            (not isChild and not candidate.parentId) then
+            table.insert(candidates, candidate)
         end
     end
 
-    return entries
+    table.sort(candidates, function(left, right)
+        return (left.displayOrder or 0) < (right.displayOrder or 0)
+    end)
+
+    for i = 1, table.getn(candidates) do
+        if candidates[i] == alert then
+            local targetIndex = i + direction
+            if candidates[targetIndex] then
+                local originalOrder = alert.displayOrder
+                alert.displayOrder = candidates[targetIndex].displayOrder
+                candidates[targetIndex].displayOrder = originalOrder
+                RefreshRows()
+            end
+            return
+        end
+    end
 end
 
 local function AddChildAlert(parent, mode)
@@ -912,6 +989,7 @@ local function AddChildAlert(parent, mode)
 
     local child = {
         id = CreateAlertId(activeAlertDatabase),
+        displayOrder = table.getn(GetActiveAlerts()) + 1,
         parentId = parent.id,
         exceptions = "",
         chatGuild = false,
@@ -998,6 +1076,18 @@ local function CreateRow(index)
 
     row.number = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     row.number:SetPoint("TOPLEFT", row, "TOPLEFT", 8, -7)
+
+    row.moveUp = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+    row.moveUp:SetWidth(18)
+    row.moveUp:SetHeight(16)
+    row.moveUp:SetPoint("TOPLEFT", row, "TOPLEFT", 4, -45)
+    row.moveUp:SetText("^")
+
+    row.moveDown = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+    row.moveDown:SetWidth(18)
+    row.moveDown:SetHeight(16)
+    row.moveDown:SetPoint("TOPLEFT", row, "TOPLEFT", 4, -62)
+    row.moveDown:SetText("v")
 
     row.patternLabel = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     row.patternLabel:SetPoint("TOPLEFT", row, "TOPLEFT", 38, -8)
@@ -1329,6 +1419,20 @@ local function CreateRow(index)
         end
     end)
 
+    row.moveUp:SetScript("OnClick", function()
+        local r = this.caRow
+        if r and r.alert then
+            MoveAlert(r.alert, r.isChild, r.parent, -1)
+        end
+    end)
+
+    row.moveDown:SetScript("OnClick", function()
+        local r = this.caRow
+        if r and r.alert then
+            MoveAlert(r.alert, r.isChild, r.parent, 1)
+        end
+    end)
+
     row.pattern.caRow=row
     row.text.caRow=row
     row.chatCustomChannel.caRow=row
@@ -1347,6 +1451,8 @@ local function CreateRow(index)
     row.delete.caRow=row
     row.sequence.caRow=row
     row.random.caRow=row
+    row.moveUp.caRow=row
+    row.moveDown.caRow=row
     row.index=index
     return row
 end
@@ -1359,6 +1465,7 @@ RefreshRows = function()
 
     if currentPage>pageCount then currentPage=pageCount end
     if currentPage<1 then currentPage=1 end
+    SaveCurrentView()
 
     for slot=1,ROWS_PER_PAGE do
         local index=((currentPage-1)*ROWS_PER_PAGE)+slot
@@ -1433,7 +1540,7 @@ add:SetPoint("BOTTOMLEFT",config,"BOTTOMLEFT",25,18)
 add:SetText("Add Alert")
 add:SetScript("OnClick",function()
     table.insert(GetActiveAlerts(),{
-        id=CreateAlertId(activeAlertDatabase), enabled=true, pattern="", exceptions="", chatGuild=false, chatCustomChannel="", textEnabled=true,
+        id=CreateAlertId(activeAlertDatabase), displayOrder=table.getn(GetActiveAlerts()) + 1, enabled=true, pattern="", exceptions="", chatGuild=false, chatCustomChannel="", textEnabled=true,
         soundEnabled=true, soundChoice=1, soundChoiceVersion=4,
         customFileName="",
         customSoundPath="Sound\\Interface\\RaidWarning.wav",
@@ -1572,6 +1679,10 @@ startup:SetScript("OnEvent",function()
     SetCharacterSource(currentCharacterStorage.shareParentKey or
         GetCurrentCharacterKey())
     UpdateMinimapButtonPosition()
-    SelectAlertTab(FortyOneSCombatAlertDB)
+    if FortyOneSCombatAlertDB.uiState.activeTab == "character" then
+        SelectAlertTab(characterAlertDatabase)
+    else
+        SelectAlertTab(FortyOneSCombatAlertDB)
+    end
     DEFAULT_CHAT_FRAME:AddMessage("|cffff333341sCombatAlert|r loaded. Type |cff66ccff/foca|r.")
 end)
