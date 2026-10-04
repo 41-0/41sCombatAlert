@@ -1609,14 +1609,13 @@ minimapBorder:SetHeight(52)
 minimapBorder:SetPoint("TOPLEFT", minimapButton, "TOPLEFT")
 
 local function UpdateMinimapButtonPosition(angle)
-    local centerX, centerY = Minimap:GetCenter()
-    local radius = 80
-    angle = angle or FortyOneSCombatAlertDB.minimapAngle or (math.pi * 0.75)
+    local defaultAngle = math.rad(280)
+    local x = math.cos(angle or defaultAngle) * 80
+    local y = math.sin(angle or defaultAngle) * 80
+    -- angle = angle or FortyOneSCombatAlertDB.minimapAngle or (math.pi * 0.75)
 
     minimapButton:ClearAllPoints()
-    minimapButton:SetPoint("CENTER", UIParent, "BOTTOMLEFT",
-        centerX + (math.cos(angle) * radius),
-        centerY + (math.sin(angle) * radius))
+    minimapButton:SetPoint("CENTER", Minimap, "CENTER", x, y)
     FortyOneSCombatAlertDB.minimapAngle = angle
 end
 
